@@ -220,8 +220,9 @@ class MixLoraConfig(LoraConfig):
     # mixtral config
     top_k_: int = None
     # dynamic config
+    broadcast_threshhold_: float = None
+    entropy_eps_: float = None
     top_p_: float = None
-    temperature_: float = None
     # switch transformers config
     router_z_loss_coef_: float = None
     expert_capacity_: int = None
@@ -253,9 +254,13 @@ class MixLoraConfig(LoraConfig):
             assert isinstance(self.top_k_, int) and self.top_k_ > 0
         elif self.routing_strategy_ == "mixlora-dynamic":
             assert (
+                isinstance(self.broadcast_threshhold_, float)
+                and self.broadcast_threshhold_ > 0
+            )
+            assert isinstance(self.entropy_eps_, float) and self.entropy_eps_ > 0
+            assert (
                 isinstance(self.top_p_, float) and self.top_p_ > 0 and self.top_p_ <= 1
             )
-            assert isinstance(self.temperature_, float) and self.temperature_ >= 0
         elif self.routing_strategy_ == "mixlora-switch":
             assert (
                 isinstance(self.router_z_loss_coef_, float)
@@ -291,8 +296,9 @@ class MixLoraConfig(LoraConfig):
         elif lora_config.routing_strategy_ == "mixlora-dynamic":
             lora_config.router_init_range_ = config.get("router_init_range", 0.02)
             lora_config.jitter_noise_ = config.get("jitter_noise", 0.0)
+            lora_config.broadcast_threshhold_ = config.get("broadcast_threshhold", 2.0)
+            lora_config.entropy_eps_ = config.get("entropy_eps", 1e-5)
             lora_config.top_p_ = config.get("top_p", 0.8)
-            lora_config.temperature_ = config.get("temperature", 0.0)
         elif lora_config.routing_strategy_ == "mixlora-switch":
             lora_config.router_init_range_ = config.get("router_init_range", 1.0)
             lora_config.jitter_noise_ = config.get("jitter_noise", 0.01)
@@ -322,8 +328,9 @@ class MixLoraConfig(LoraConfig):
         if self.routing_strategy_ == "mixlora":
             config["top_k"] = self.top_k_
         elif self.routing_strategy_ == "mixlora-dynamic":
+            config["broadcast_threshhold"] = self.broadcast_threshhold_
+            config["entropy_eps"] = self.entropy_eps_
             config["top_p"] = self.top_p_
-            config["temperature"] = self.temperature_
         elif self.routing_strategy_ == "mixlora-switch":
             config["expert_capacity"] = self.expert_capacity_
             config["sparse_step"] = self.sparse_step_
