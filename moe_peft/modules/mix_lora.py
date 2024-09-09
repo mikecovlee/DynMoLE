@@ -273,7 +273,7 @@ def _dynamic_routing(
     probs_neg_log = -torch.log(router_logits + eps)  # eps for 'p=0, -plogp=0'
     router_entropy = (router_logits * probs_neg_log).sum(dim=-1)
     # broadcast if higher than threshhold
-    broadcast_index = router_entropy >= broadcast_threshhold
+    broadcast_index = torch.nonzero(router_entropy >= broadcast_threshhold).squeeze(-1)
     # calculate top-p routing
     sorted_logits, sorted_indices = torch.sort(router_logits, dim=-1, descending=True)
     cumulative_probs = sorted_logits.cumsum(dim=-1)
@@ -284,9 +284,8 @@ def _dynamic_routing(
         threshold_indices, num_classes=sorted_indices.size(-1)
     ).bool()
     # calculate final mask
-    expert_mask = expert_mask & ~threshold_mask
-    expert_mask[broadcast_index] = False
-    sorted_logits = sorted_logits.masked_fill(expert_mask, 0.0)
+    expert_mask = (expert_mask & ~threshold_mask).index_fill(0, broadcast_index, False)
+    # sorted_logits = sorted_logits.masked_fill(expert_mask, 0.0)
     sorted_indices = sorted_indices.masked_fill(expert_mask, -1)
     return router_entropy, sorted_logits, sorted_indices
 
@@ -296,6 +295,7 @@ def _dynamic_load_balancing_loss_func(
     broadcast_threshhold: float = 2.0,
     top_p: float = 0.8,
     eps: float = 1e-5,
+    attention_mask: Optional[torch.Tensor] = None,
 ) -> float:
     num_experts = routing_weights.size(-1)
 
@@ -316,11 +316,49 @@ def _dynamic_load_balancing_loss_func(
 
     expert_mask = expert_mask.permute(2, 1, 0)
 
-    # Compute the percentage of tokens routed to each experts
-    tokens_per_expert = torch.mean(expert_mask.float(), dim=0)
+    if attention_mask is None:
+        # Compute the percentage of tokens routed to each experts
+        tokens_per_expert = torch.mean(expert_mask.float(), dim=0)
 
-    # Compute the average probability of routing to these experts
-    router_prob_per_expert = torch.mean(routing_weights, dim=0)
+        # Compute the average probability of routing to these experts
+        router_prob_per_expert = torch.mean(routing_weights, dim=0)
+    else:
+        batch_size, sequence_length = attention_mask.shape
+        num_hidden_layers = routing_weights.shape[0] // (batch_size * sequence_length)
+
+        # Compute the mask that masks all padding tokens as 0 with the same shape of expert_mask
+        expert_attention_mask = (
+            attention_mask[None, :, :, None, None]
+            .expand(
+                (
+                    num_hidden_layers,
+                    batch_size,
+                    sequence_length,
+                    num_experts,
+                    num_experts,
+                )
+            )
+            .reshape(-1, num_experts, num_experts)
+            .to(routing_weights.device)
+        )
+
+        # Compute the percentage of tokens routed to each experts
+        tokens_per_expert = torch.sum(
+            expert_mask.float() * expert_attention_mask, dim=0
+        ) / torch.sum(expert_attention_mask, dim=0)
+
+        # Compute the mask that masks all padding tokens as 0 with the same shape of tokens_per_expert
+        router_per_expert_attention_mask = (
+            attention_mask[None, :, :, None]
+            .expand((num_hidden_layers, batch_size, sequence_length, num_experts))
+            .reshape(-1, num_experts)
+            .to(routing_weights.device)
+        )
+
+        # Compute the average probability of routing to these experts
+        router_prob_per_expert = torch.sum(
+            routing_weights * router_per_expert_attention_mask, dim=0
+        ) / torch.sum(router_per_expert_attention_mask, dim=0)
 
     overall_loss = torch.sum(tokens_per_expert * router_prob_per_expert.unsqueeze(0))
     return entropy_loss + overall_loss * num_experts
@@ -342,6 +380,7 @@ class DynamicRouterLoss(torch.nn.Module):
             self.broadcast_threshhold,
             self.top_p,
             self.eps,
+            attention_mask,
         )
 
 

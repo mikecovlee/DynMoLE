@@ -11,9 +11,9 @@
             "optim": "adamw",
             "scheduler_type": "constant",
             "warmup_steps": 0,
-            "lr": 2e-4,
+            "lr": 1e-4,
             "batch_size": 16,
-            "micro_batch_size": 8,
+            "micro_batch_size": 4,
             "evaluate_batch_size": 16,
             "num_epochs": 2,
             "r": 16,
@@ -30,7 +30,8 @@
             },
             "routing_strategy": "mixlora-dynamic",
             "num_experts": 8,
-            "top_p": 0.8,
+            "broadcast_threshhold": 1.8,
+            "top_p": 0.75,
             "group_by_length": false
         }
     ]
