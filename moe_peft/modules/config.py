@@ -372,6 +372,7 @@ class LoraMoeConfig(LoraConfig):
     def export(self) -> Dict[str, any]:
         config = super().export()
         config["peft_type"] = "LORAMOE"
+        config["routing_strategy"] = self.routing_strategy_
         config["num_experts"] = self.num_experts_
 
         return config
@@ -411,8 +412,61 @@ class MolaConfig(LoraConfig):
     def export(self) -> Dict[str, any]:
         config = super().export()
         config["peft_type"] = "MOLA"
-        config["top_k"] = self.top_k_
+        config["routing_strategy"] = self.routing_strategy_
         config["num_experts"] = self.num_experts_
+        config["top_k"] = self.top_k_
+
+        return config
+
+    def expert_config(self, expert_idx: int) -> LoraConfig:
+        config = copy.deepcopy(super())
+        config.adapter_name = f"moe.{self.adapter_name}.experts.{expert_idx}"
+        return config
+
+
+@dataclass
+class DynMoleConfig(LoraConfig):
+    broadcast_threshhold_: float = None
+    entropy_eps_: float = None
+    top_p_: float = None
+    num_experts_: int = None
+    router_init_range_: float = None
+    routing_strategy_: str = "dynmole"
+
+    def check(self) -> "DynMoleConfig":
+        super().check()
+        assert (
+            isinstance(self.broadcast_threshhold_, float)
+            and self.broadcast_threshhold_ > 0
+        )
+        assert isinstance(self.entropy_eps_, float) and self.entropy_eps_ > 0
+        assert isinstance(self.top_p_, float) and self.top_p_ > 0 and self.top_p_ <= 1
+        assert isinstance(self.num_experts_, int) and self.num_experts_ > 0
+        assert (
+            isinstance(self.router_init_range_, float) and self.router_init_range_ >= 0
+        )
+
+        return self
+
+    @staticmethod
+    def from_config(config: Dict[str, any]) -> "DynMoleConfig":
+        return DynMoleConfig(
+            broadcast_threshhold_=config.get("broadcast_threshhold", 1.8),
+            entropy_eps_=config.get("entropy_eps", 1e-5),
+            top_p_=config.get("top_p", 0.75),
+            num_experts_=config["num_experts"],
+            router_init_range_=config.get("router_init_range", 5.0),
+            **LoraConfig.from_config(config).__dict__,
+        )
+
+    def export(self) -> Dict[str, any]:
+        config = super().export()
+        config["peft_type"] = "DYNMOLE"
+        config["routing_strategy"] = self.routing_strategy_
+        config["num_experts"] = self.num_experts_
+        config["broadcast_threshhold"] = self.broadcast_threshhold_
+        config["entropy_eps"] = self.entropy_eps_
+        config["top_p"] = self.top_p_
 
         return config
 
@@ -427,6 +481,7 @@ peft_type_dict = {
     "MIXLORA": MixLoraConfig,
     "LORAMOE": LoraMoeConfig,
     "MOLA": MolaConfig,
+    "DYNMOLE": DynMoleConfig,
 }
 
 routing_strategy_dict = {
@@ -435,6 +490,7 @@ routing_strategy_dict = {
     "mixlora-switch": MixLoraConfig,
     "loramoe": LoraMoeConfig,
     "mola": MolaConfig,
+    "dynmole": DynMoleConfig,
 }
 
 

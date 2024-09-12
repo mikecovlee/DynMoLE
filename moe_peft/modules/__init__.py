@@ -30,6 +30,7 @@ from .checkpoint import (
 # Model Configuration
 from .config import (
     AdapterConfig,
+    DynMoleConfig,
     InputData,
     Labels,
     LLMBatchConfig,
@@ -54,6 +55,7 @@ from .lora_linear import Linear, Lora, get_range_tensor
 from .lora_moes import (
     DynamicRouterLoss,
     DynamicSparseMoe,
+    DynMole,
     LoraMoe,
     MixtralRouterLoss,
     MixtralSparseMoe,
@@ -93,6 +95,7 @@ __all__ = [
     "SwitchSparseMoe",
     "LoraMoe",
     "MolaSparseMoe",
+    "DynMole",
     "router_loss_dict",
     "moe_layer_dict",
     "router_loss_factory",
@@ -117,6 +120,7 @@ __all__ = [
     "MixLoraConfig",
     "LoraMoeConfig",
     "MolaConfig",
+    "DynMoleConfig",
     "lora_config_factory",
     "ROPE_INIT_FUNCTIONS",
 ]

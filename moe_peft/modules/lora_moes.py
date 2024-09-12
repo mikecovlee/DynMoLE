@@ -5,7 +5,7 @@ import torch
 import torch.nn.functional as F
 
 from .abstracts import LLMMoeBlock
-from .config import LoraMoeConfig, MixLoraConfig, MolaConfig
+from .config import DynMoleConfig, LoraMoeConfig, MixLoraConfig, MolaConfig
 from .lora_linear import Linear
 from .mix_lora import (
     DynamicRouterLoss,
@@ -151,6 +151,98 @@ class MolaSparseMoe(LLMMoeBlock):
         return residual + final_hidden_states
 
 
+def _dynamic_routing(
+    router_logits: torch.Tensor,
+    broadcast_threshhold: float,
+    top_p: float,
+    eps: float = 1e-5,
+):
+    # calculate router entropy
+    probs_neg_log = -torch.log(router_logits + eps)  # eps for 'p=0, -plogp=0'
+    router_entropy = (router_logits * probs_neg_log).sum(dim=-1)
+    # broadcast if higher than threshhold
+    broadcast_index, _ = torch.where(router_entropy >= broadcast_threshhold)
+    # calculate top-p routing
+    sorted_logits, _ = torch.sort(router_logits, dim=-1, descending=True)
+    cumulative_probs = sorted_logits.cumsum(dim=-1)
+    expert_mask = cumulative_probs > top_p
+    # maintain top-1 if no experts selected
+    threshold_indices = expert_mask.long().argmax(dim=-1)
+    threshold_mask = torch.nn.functional.one_hot(
+        threshold_indices, num_classes=router_logits.size(-1)
+    ).bool()
+    # calculate final mask
+    expert_mask = (expert_mask & ~threshold_mask).index_fill(0, broadcast_index, False)
+    sorted_logits = sorted_logits.masked_fill(expert_mask, 0.0)
+    # sorted_indices = sorted_indices.masked_fill(expert_mask, -1)
+    return router_entropy, sorted_logits
+
+
+class DynMole(LLMMoeBlock):
+    def __init__(
+        self,
+        in_features: int,
+        device: torch.device,
+        config: DynMoleConfig,
+        gate: Optional[torch.Tensor] = None,
+    ) -> None:
+        super().__init__()
+
+        self.adapter_name_: str = config.adapter_name
+        self.dtype_: torch.dtype = torch.float32
+        self.gate_ = torch.nn.Linear(
+            in_features,
+            config.num_experts_,
+            bias=False,
+            device=device,
+            dtype=torch.float32,
+        )
+        self.broadcast_threshhold_: float = config.broadcast_threshhold_
+        self.top_p_: float = config.top_p_
+        self.eps_: float = config.entropy_eps_
+        self.experts_: int = config.num_experts_
+        self.router_profile_: bool = False
+        self.profiler_: List[int] = None
+
+        if gate is None:
+            torch.nn.init.kaiming_uniform_(
+                self.gate_.weight, a=math.sqrt(config.router_init_range_)
+            )
+        else:
+            with torch.no_grad():
+                self.gate_.weight.copy_(gate)
+
+    def forward(
+        self,
+        residual: torch.Tensor,
+        hidden_states: torch.Tensor,
+        lora_linear: Optional[Linear] = None,
+    ) -> Tuple:
+        assert lora_linear is not None
+        router_logits = self.gate_(hidden_states.to(self.dtype_))
+        routing_weights = F.softmax(router_logits, dim=-1, dtype=torch.float32)
+        router_entropy, routing_weights = _dynamic_routing(
+            routing_weights, self.broadcast_threshhold_, self.top_p_, self.eps_
+        )
+        if self.router_profile_:
+            print(f"entropy: {router_entropy.mean()}")
+            router_profile = (routing_weights > 0.0).long().sum(-1).float()
+            print(f"max activated: {router_profile.max()}")
+            print(f"min activated: {router_profile.min()}")
+            print(f"avg activated: {router_profile.mean()}")
+
+        for expert_idx in range(self.experts_):
+            expert_lora = lora_linear.loras_[
+                f"moe.{self.adapter_name_}.experts.{expert_idx}"
+            ]
+            residual = residual + (
+                routing_weights[:, :, expert_idx].unsqueeze(-1)
+                * expert_lora.lora_forward(hidden_states)
+            ).to(hidden_states.dtype)
+
+        return residual
+
+
 router_loss_dict = {
     "mixlora": MixtralRouterLoss,
     "mixlora-dynamic": DynamicRouterLoss,
@@ -173,6 +265,7 @@ moe_layer_dict = {
     "mixlora-switch": SwitchSparseMoe,
     "loramoe": LoraMoe,
     "mola": MolaSparseMoe,
+    "dynmole": DynMole,
 }
 
 

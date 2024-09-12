@@ -14,6 +14,7 @@ from moe_peft.models import from_pretrained
 from moe_peft.modules import (
     CHECKPOINT_CLASSES,
     AdapterConfig,
+    DynMoleConfig,
     Linear,
     LLMCache,
     LLMDecoder,
@@ -184,6 +185,10 @@ def init_lora_layer_weight(
         model_prefix_name = "mola"
         moe_layer_name_list = list(all_state_dict.keys())
         moe_init_strategy = "plugin"
+    elif isinstance(lora_config, DynMoleConfig):
+        model_prefix_name = "dynmole"
+        moe_layer_name_list = list(all_state_dict.keys())
+        moe_init_strategy = "plugin"
     else:
         model_prefix_name = "base_model.model.model"
         moe_layer_name_list = []
@@ -276,6 +281,9 @@ def get_lora_layer_weight(
         moe_layer_name_list = list(mlp_state_dict.keys())
     elif isinstance(lora_config, MolaConfig):
         model_prefix_name = "mola"
+        moe_layer_name_list = list(all_state_dict.keys())
+    elif isinstance(lora_config, DynMoleConfig):
+        model_prefix_name = "dynmole"
         moe_layer_name_list = list(all_state_dict.keys())
     else:
         model_prefix_name = "base_model.model.model"
