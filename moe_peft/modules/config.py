@@ -432,6 +432,9 @@ class DynMoleConfig(LoraConfig):
     num_experts_: int = None
     router_init_range_: float = None
     routing_strategy_: str = "dynmole"
+    router_aux_loss_coef_: float = None
+    router_dyn_loss_coef_: float = None
+    router_loss_: bool = True
 
     def check(self) -> "DynMoleConfig":
         super().check()
@@ -445,6 +448,15 @@ class DynMoleConfig(LoraConfig):
         assert (
             isinstance(self.router_init_range_, float) and self.router_init_range_ >= 0
         )
+        assert (
+            isinstance(self.router_aux_loss_coef_, float)
+            and self.router_aux_loss_coef_ >= 0
+        )
+        assert (
+            isinstance(self.router_dyn_loss_coef_, float)
+            and self.router_dyn_loss_coef_ >= 0
+        )
+        assert isinstance(self.router_loss_, bool)
 
         return self
 
@@ -456,6 +468,13 @@ class DynMoleConfig(LoraConfig):
             top_p_=config.get("top_p", 0.75),
             num_experts_=config["num_experts"],
             router_init_range_=config.get("router_init_range", 5.0),
+            router_aux_loss_coef_=config.get(
+                "router_aux_loss_coef", 0.001
+            ),  # for training
+            router_dyn_loss_coef_=config.get(
+                "router_dyn_loss_coef", 0.001
+            ),  # for training
+            router_loss_=config.get("router_loss", True),
             **LoraConfig.from_config(config).__dict__,
         )
 

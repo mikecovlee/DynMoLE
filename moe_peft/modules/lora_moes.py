@@ -169,9 +169,9 @@ def _dynamic_routing(
     # calculate router entropy
     router_entropy = _entropy(router_logits, -1, eps)
     # broadcast if higher than threshhold
-    broadcast_index, _ = torch.where(router_entropy >= broadcast_threshhold)
+    broadcast_index = torch.where(router_entropy >= broadcast_threshhold)[0]
     # calculate top-p routing
-    sorted_logits, _ = torch.sort(router_logits, dim=-1, descending=True)
+    sorted_logits = torch.sort(router_logits, dim=-1, descending=True)[0]
     cumulative_probs = sorted_logits.cumsum(dim=-1)
     expert_mask = cumulative_probs > top_p
     # maintain top-1 if no experts selected
@@ -182,8 +182,109 @@ def _dynamic_routing(
     # calculate final mask
     expert_mask = (expert_mask & ~threshold_mask).index_fill(0, broadcast_index, False)
     sorted_logits = sorted_logits.masked_fill(expert_mask, 0.0)
-    # sorted_indices = sorted_indices.masked_fill(expert_mask, -1)
     return router_entropy, sorted_logits
+
+
+def _dynamic_load_balancing_loss_func(
+    routing_logits: torch.Tensor,
+    broadcast_threshhold: float,
+    top_p: float,
+    eps: float = 1e-5,
+    aux_loss_coef: float = 0.001,
+    dyn_loss_coef: float = 0.001,
+    attention_mask: Optional[torch.Tensor] = None,
+) -> float:
+    routing_weights = F.softmax(routing_logits, dim=-1)
+
+    router_entropy, routing_weights = _dynamic_routing(
+        routing_weights, broadcast_threshhold, top_p, eps
+    )
+
+    entropy_loss = torch.mean(router_entropy, dim=0)
+
+    expert_mask = (routing_weights > 0.0).long()
+
+    if attention_mask is None:
+        # Compute the percentage of tokens routed to each experts
+        tokens_per_expert = torch.mean(expert_mask.float(), dim=0)
+
+        # Compute the average probability of routing to these experts
+        router_prob_per_expert = torch.mean(routing_weights, dim=0)
+    else:
+        num_experts = routing_weights.size(-1)
+        batch_size, sequence_length = attention_mask.shape
+        num_hidden_layers = routing_weights.shape[0] // (batch_size * sequence_length)
+
+        # Compute the mask that masks all padding tokens as 0 with the same shape of expert_mask
+        expert_attention_mask = (
+            attention_mask[None, :, :, None]
+            .expand(
+                (
+                    num_hidden_layers,
+                    batch_size,
+                    sequence_length,
+                    num_experts,
+                )
+            )
+            .reshape(-1, num_experts)
+            .to(routing_weights.device)
+        )
+
+        # Compute the percentage of tokens routed to each experts
+        tokens_per_expert = torch.sum(
+            expert_mask.float() * expert_attention_mask, dim=0
+        ) / torch.sum(expert_attention_mask, dim=0)
+
+        # Compute the mask that masks all padding tokens as 0 with the same shape of tokens_per_expert
+        router_per_expert_attention_mask = (
+            attention_mask[None, :, :, None]
+            .expand((num_hidden_layers, batch_size, sequence_length, num_experts))
+            .reshape(-1, num_experts)
+            .to(routing_weights.device)
+        )
+
+        # Compute the average probability of routing to these experts
+        router_prob_per_expert = torch.sum(
+            routing_weights * router_per_expert_attention_mask, dim=0
+        ) / torch.sum(router_per_expert_attention_mask, dim=0)
+
+    overall_loss = torch.sum(tokens_per_expert * router_prob_per_expert)
+
+    return entropy_loss * dyn_loss_coef + overall_loss * num_experts * aux_loss_coef
+
+
+def _unpack_router_logits(gate_logits: List[torch.Tensor]):
+    compute_device = gate_logits[0].device
+    concatenated_gate_logits = torch.cat(
+        [
+            layer_gate.to(compute_device).reshape(-1, layer_gate.size(-1))
+            for layer_gate in gate_logits
+        ],
+        dim=0,
+    )
+    return concatenated_gate_logits
+
+
+class DynMoleRouterLoss(torch.nn.Module):
+    def __init__(self, config: DynMoleConfig) -> None:
+        super().__init__()
+        self.aux_loss_coef = config.router_aux_loss_coef_
+        self.dyn_loss_coef = config.router_dyn_loss_coef_
+        self.broadcast_threshhold: float = config.broadcast_threshhold_
+        self.top_p: float = config.top_p_
+        self.eps: float = config.entropy_eps_
+
+    def forward(self, gate_logits, attention_mask) -> torch.Tensor:
+        concatenated_gate_logits = _unpack_router_logits(gate_logits)
+        return _dynamic_load_balancing_loss_func(
+            concatenated_gate_logits,
+            self.broadcast_threshhold,
+            self.top_p,
+            self.eps,
+            self.aux_loss_coef,
+            self.dyn_loss_coef,
+            attention_mask,
+        )
 
 
 class DynMole(LLMMoeBlock):
@@ -209,6 +310,7 @@ class DynMole(LLMMoeBlock):
         self.top_p_: float = config.top_p_
         self.eps_: float = config.entropy_eps_
         self.experts_: int = config.num_experts_
+        self.router_logits_: torch.Tensor = None
         self.router_profile_: bool = False
         self.profiler_: List[int] = None
 
@@ -227,8 +329,8 @@ class DynMole(LLMMoeBlock):
         lora_linear: Optional[Linear] = None,
     ) -> Tuple:
         assert lora_linear is not None
-        router_logits = self.gate_(hidden_states.to(self.dtype_))
-        routing_weights = F.softmax(router_logits, dim=-1, dtype=torch.float32)
+        self.router_logits_ = self.gate_(hidden_states.to(self.dtype_))
+        routing_weights = F.softmax(self.router_logits_, dim=-1, dtype=torch.float32)
         router_entropy, routing_weights = _dynamic_routing(
             routing_weights, self.broadcast_threshhold_, self.top_p_, self.eps_
         )
@@ -255,6 +357,7 @@ router_loss_dict = {
     "mixlora": MixtralRouterLoss,
     "mixlora-dynamic": DynamicRouterLoss,
     "mixlora-switch": SwitchRouterLoss,
+    "dynmole": DynMoleRouterLoss,
 }
 
 
