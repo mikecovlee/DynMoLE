@@ -6,16 +6,7 @@ from transformers.activations import ACT2FN
 
 from .abstracts import LLMFeedForward, LLMModelInput, LLMMoeBlock
 from .config import MixLoraConfig
-
-
-@torch.jit.script
-def _entropy(
-    logits: torch.Tensor,
-    dim: int = -1,
-    eps: float = 1e-5,
-) -> torch.Tensor:
-    probs_neg_log = -torch.log(logits + eps)  # eps for 'p=0, -plogp=0'
-    return (logits * probs_neg_log).sum(dim=dim)
+from .moe_utils import logits_entropy
 
 
 def _slice_tensor(
@@ -281,7 +272,7 @@ def _dynamic_routing(
     eps: float = 1e-5,
 ):
     # calculate router entropy
-    router_entropy = _entropy(router_logits, -1, eps)
+    router_entropy = logits_entropy(router_logits, -1, eps)
     # broadcast if higher than threshhold
     broadcast_index = torch.nonzero(router_entropy >= broadcast_threshhold).squeeze(-1)
     # calculate top-p routing

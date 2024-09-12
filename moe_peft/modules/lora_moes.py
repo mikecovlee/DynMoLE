@@ -15,8 +15,8 @@ from .mix_lora import (
     MixtralSparseMoe,
     SwitchRouterLoss,
     SwitchSparseMoe,
-    _entropy,
 )
+from .moe_utils import logits_entropy
 
 
 class LoraMoe(LLMMoeBlock):
@@ -61,7 +61,7 @@ class LoraMoe(LLMMoeBlock):
             self.gate_(hidden_states.to(self.dtype_)), dim=-1, dtype=torch.float32
         )
         if self.router_profile_:
-            logging.info(f"entropy: {_entropy(route_weight)}")
+            logging.info(f"entropy: {logits_entropy(route_weight)}")
 
         for expert_idx in range(self.experts_):
             expert_lora = lora_linear.loras_[
@@ -120,7 +120,7 @@ class MolaSparseMoe(LLMMoeBlock):
         router_logits = self.gate_(hidden_states)
         routing_weights_before = F.softmax(router_logits, dim=1, dtype=self.dtype_)
         if self.router_profile_:
-            logging.info(f"entropy: {_entropy(routing_weights_before)}")
+            logging.info(f"entropy: {logits_entropy(routing_weights_before)}")
 
         routing_weights, selected_experts = torch.topk(
             routing_weights_before, self.topk_, dim=-1
@@ -167,7 +167,7 @@ def _dynamic_routing(
     eps: float = 1e-5,
 ):
     # calculate router entropy
-    router_entropy = _entropy(router_logits, -1, eps)
+    router_entropy = logits_entropy(router_logits, -1, eps)
     # broadcast if higher than threshhold
     broadcast_index = torch.where(router_entropy >= broadcast_threshhold)[0]
     # calculate top-p routing
@@ -329,8 +329,9 @@ class DynMole(LLMMoeBlock):
         lora_linear: Optional[Linear] = None,
     ) -> Tuple:
         assert lora_linear is not None
-        self.router_logits_ = self.gate_(hidden_states.to(self.dtype_))
-        routing_weights = F.softmax(self.router_logits_, dim=-1, dtype=torch.float32)
+        router_logits = self.gate_(hidden_states.to(self.dtype_))
+        self.router_logits_ = router_logits.reshape(-1, self.experts_)
+        routing_weights = F.softmax(router_logits, dim=-1, dtype=torch.float32)
         router_entropy, routing_weights = _dynamic_routing(
             routing_weights, self.broadcast_threshhold_, self.top_p_, self.eps_
         )
