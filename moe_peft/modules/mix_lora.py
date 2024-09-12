@@ -8,6 +8,16 @@ from .abstracts import LLMFeedForward, LLMModelInput, LLMMoeBlock
 from .config import MixLoraConfig
 
 
+@torch.jit.script
+def _entropy(
+    logits: torch.Tensor,
+    dim: int = -1,
+    eps: float = 1e-5,
+) -> torch.Tensor:
+    probs_neg_log = -torch.log(logits + eps)  # eps for 'p=0, -plogp=0'
+    return (logits * probs_neg_log).sum(dim=dim)
+
+
 def _slice_tensor(
     data: torch.Tensor,
     slice: torch.Tensor,
@@ -263,6 +273,7 @@ class MixtralSparseMoe(LLMMoeBlock):
         return final_hidden_states, router_logits
 
 
+@torch.jit.script
 def _dynamic_routing(
     router_logits: torch.Tensor,
     broadcast_threshhold: float = 2.0,
@@ -270,8 +281,7 @@ def _dynamic_routing(
     eps: float = 1e-5,
 ):
     # calculate router entropy
-    probs_neg_log = -torch.log(router_logits + eps)  # eps for 'p=0, -plogp=0'
-    router_entropy = (router_logits * probs_neg_log).sum(dim=-1)
+    router_entropy = _entropy(router_logits, -1, eps)
     # broadcast if higher than threshhold
     broadcast_index = torch.nonzero(router_entropy >= broadcast_threshhold).squeeze(-1)
     # calculate top-p routing
@@ -282,7 +292,7 @@ def _dynamic_routing(
     threshold_indices = expert_mask.long().argmax(dim=-1)
     threshold_mask = torch.nn.functional.one_hot(
         threshold_indices, num_classes=sorted_indices.size(-1)
-    ).bool()
+    ).to(torch.bool)
     # calculate final mask
     expert_mask = (expert_mask & ~threshold_mask).index_fill(0, broadcast_index, False)
     # sorted_logits = sorted_logits.masked_fill(expert_mask, 0.0)
