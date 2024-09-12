@@ -165,24 +165,30 @@ def _dynamic_routing(
     broadcast_threshhold: float,
     top_p: float,
     eps: float = 1e-5,
+    keep_top_k: int = 2,
 ):
-    # calculate router entropy
-    router_entropy = logits_entropy(router_logits, -1, eps)
-    # broadcast if higher than threshhold
-    broadcast_index = torch.where(router_entropy >= broadcast_threshhold)[0]
-    # calculate top-p routing
-    sorted_logits = torch.sort(router_logits, dim=-1, descending=True)[0]
+    # top-p routing
+    sorted_logits, sorted_indices = torch.sort(router_logits, dim=-1, descending=True)
     cumulative_probs = sorted_logits.cumsum(dim=-1)
     expert_mask = cumulative_probs > top_p
-    # maintain top-1 if no experts selected
-    threshold_indices = expert_mask.long().argmax(dim=-1)
-    threshold_mask = torch.nn.functional.one_hot(
-        threshold_indices, num_classes=router_logits.size(-1)
-    ).to(torch.bool)
-    # calculate final mask
-    expert_mask = (expert_mask & ~threshold_mask).index_fill(0, broadcast_index, False)
-    sorted_logits = sorted_logits.masked_fill(expert_mask, 0.0)
-    return router_entropy, sorted_logits
+    # keep top-k
+    if expert_mask.dim() == 3:
+        expert_mask[:, :, :keep_top_k] = False
+    elif expert_mask.dim() == 2:
+        expert_mask[:, :keep_top_k] = False
+    else:
+        raise RuntimeError(f"invalid dim of expert_mask: {expert_mask.dim()}")
+    # scatter final mask
+    expert_mask = torch.scatter(
+        torch.zeros_like(expert_mask, dtype=torch.bool), -1, sorted_indices, expert_mask
+    )
+    # calculate entropy
+    router_entropy = logits_entropy(router_logits, -1, eps)
+    # broadcast if higher than threshhold
+    expert_mask[router_entropy >= broadcast_threshhold] = False
+    # mask deactivate experts
+    routing_weights = router_logits.masked_fill(expert_mask, 0.0)
+    return router_entropy, routing_weights
 
 
 def _dynamic_load_balancing_loss_func(
