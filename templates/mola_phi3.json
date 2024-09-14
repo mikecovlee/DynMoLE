@@ -16,17 +16,17 @@
             "micro_batch_size": 8,
             "evaluate_batch_size": 16,
             "num_epochs": 2,
-            "r": 10,
-            "lora_alpha": 20,
+            "r": 22,
+            "lora_alpha": 44,
             "lora_dropout": 0.05,
             "target_modules": {
-                "qkv_proj": true,
-                "o_proj": true,
+                "qkv_proj": false,
+                "o_proj": false,
                 "gate_up_proj": true,
                 "down_proj": true
             },
             "routing_strategy": "mola",
-            "num_experts": 8,
+            "num_experts": 6,
             "top_k": 2,
             "group_by_length": false
         }
