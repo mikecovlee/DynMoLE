@@ -442,12 +442,13 @@ class LLMModel(torch.nn.Module):
                 cache_position,
                 past_key_value,
             )
-            if len(router_logits) != 0:
-                # collecting router logits
-                assert len(router_logits) == num_adapters
-                for idx in range(num_adapters):
-                    if router_logits[idx] is not None:
-                        all_router_logits[idx].append(router_logits[idx])
+            if len(router_logits) == 0:
+                continue
+            # collecting router logits
+            assert len(router_logits) == num_adapters
+            for idx in range(num_adapters):
+                if router_logits[idx] is not None:
+                    all_router_logits[idx].append(router_logits[idx])
 
         hidden_states = self.model_.norm(hidden_states)
 
