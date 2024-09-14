@@ -30,7 +30,7 @@
             },
             "routing_strategy": "mixlora-dynamic",
             "num_experts": 8,
-            "broadcast_threshhold": 1.8,
+            "entropy_threshhold": 1.8,
             "top_p": 0.75,
             "group_by_length": false
         }

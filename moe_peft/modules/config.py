@@ -296,7 +296,7 @@ class MixLoraConfig(LoraConfig):
         elif lora_config.routing_strategy_ == "mixlora-dynamic":
             lora_config.router_init_range_ = config.get("router_init_range", 0.02)
             lora_config.jitter_noise_ = config.get("jitter_noise", 0.0)
-            lora_config.broadcast_threshhold_ = config.get("broadcast_threshhold", 2.0)
+            lora_config.broadcast_threshhold_ = config.get("entropy_threshhold", 2.0)
             lora_config.entropy_eps_ = config.get("entropy_eps", 1e-5)
             lora_config.top_p_ = config.get("top_p", 0.8)
         elif lora_config.routing_strategy_ == "mixlora-switch":
@@ -328,7 +328,7 @@ class MixLoraConfig(LoraConfig):
         if self.routing_strategy_ == "mixlora":
             config["top_k"] = self.top_k_
         elif self.routing_strategy_ == "mixlora-dynamic":
-            config["broadcast_threshhold"] = self.broadcast_threshhold_
+            config["entropy_threshhold"] = self.broadcast_threshhold_
             config["entropy_eps"] = self.entropy_eps_
             config["top_p"] = self.top_p_
         elif self.routing_strategy_ == "mixlora-switch":
@@ -426,8 +426,10 @@ class MolaConfig(LoraConfig):
 
 @dataclass
 class DynMoleConfig(LoraConfig):
-    broadcast_threshhold_: float = None
+    entropy_threshhold_: float = None
     entropy_eps_: float = None
+    entropy_q_: float = None
+    keep_top_k_: int = None
     top_p_: float = None
     num_experts_: int = None
     router_init_range_: float = None
@@ -439,10 +441,11 @@ class DynMoleConfig(LoraConfig):
     def check(self) -> "DynMoleConfig":
         super().check()
         assert (
-            isinstance(self.broadcast_threshhold_, float)
-            and self.broadcast_threshhold_ > 0
+            isinstance(self.entropy_threshhold_, float) and self.entropy_threshhold_ > 0
         )
         assert isinstance(self.entropy_eps_, float) and self.entropy_eps_ > 0
+        assert isinstance(self.entropy_q_, float) and self.entropy_q_ > 0
+        assert isinstance(self.keep_top_k_, int) and self.keep_top_k_ > 0
         assert isinstance(self.top_p_, float) and self.top_p_ > 0 and self.top_p_ <= 1
         assert isinstance(self.num_experts_, int) and self.num_experts_ > 0
         assert (
@@ -463,8 +466,10 @@ class DynMoleConfig(LoraConfig):
     @staticmethod
     def from_config(config: Dict[str, any]) -> "DynMoleConfig":
         return DynMoleConfig(
-            broadcast_threshhold_=config.get("broadcast_threshhold", 1.8),
+            entropy_threshhold_=config.get("entropy_threshhold", 0.5),
             entropy_eps_=config.get("entropy_eps", 1e-5),
+            entropy_q_=config.get("entropy_q", 1.5),
+            keep_top_k_=config.get("keep_top_k", 2),
             top_p_=config.get("top_p", 0.75),
             num_experts_=config["num_experts"],
             router_init_range_=config.get("router_init_range", 5.0),
@@ -472,7 +477,7 @@ class DynMoleConfig(LoraConfig):
                 "router_aux_loss_coef", 0.001
             ),  # for training
             router_dyn_loss_coef_=config.get(
-                "router_dyn_loss_coef", 0.001
+                "router_dyn_loss_coef", 0.01
             ),  # for training
             router_loss_=config.get("router_loss", True),
             **LoraConfig.from_config(config).__dict__,
@@ -483,8 +488,10 @@ class DynMoleConfig(LoraConfig):
         config["peft_type"] = "DYNMOLE"
         config["routing_strategy"] = self.routing_strategy_
         config["num_experts"] = self.num_experts_
-        config["broadcast_threshhold"] = self.broadcast_threshhold_
+        config["entropy_threshhold"] = self.entropy_threshhold_
         config["entropy_eps"] = self.entropy_eps_
+        config["entropy_q"] = self.entropy_q_
+        config["keep_top_k"] = self.keep_top_k_
         config["top_p"] = self.top_p_
 
         return config

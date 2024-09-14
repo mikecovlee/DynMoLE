@@ -6,7 +6,7 @@ from transformers.activations import ACT2FN
 
 from .abstracts import LLMFeedForward, LLMModelInput, LLMMoeBlock
 from .config import MixLoraConfig
-from .moe_utils import logits_entropy
+from .moe_utils import shannon_entropy
 
 
 def _slice_tensor(
@@ -267,14 +267,14 @@ class MixtralSparseMoe(LLMMoeBlock):
 @torch.jit.script
 def _dynamic_routing(
     router_logits: torch.Tensor,
-    broadcast_threshhold: float = 2.0,
+    entropy_threshhold: float = 2.0,
     top_p: float = 0.8,
     eps: float = 1e-5,
 ):
     # calculate router entropy
-    router_entropy = logits_entropy(router_logits, -1, eps)
+    router_entropy = shannon_entropy(router_logits, False, eps)
     # broadcast if higher than threshhold
-    broadcast_index = torch.nonzero(router_entropy >= broadcast_threshhold).squeeze(-1)
+    broadcast_index = torch.nonzero(router_entropy >= entropy_threshhold).squeeze(-1)
     # calculate top-p routing
     sorted_logits, sorted_indices = torch.sort(router_logits, dim=-1, descending=True)
     cumulative_probs = sorted_logits.cumsum(dim=-1)
@@ -293,7 +293,7 @@ def _dynamic_routing(
 
 def _dynamic_load_balancing_loss_func(
     routing_weights: torch.Tensor,
-    broadcast_threshhold: float = 2.0,
+    entropy_threshhold: float = 2.0,
     top_p: float = 0.8,
     eps: float = 1e-5,
     attention_mask: Optional[torch.Tensor] = None,
@@ -301,7 +301,7 @@ def _dynamic_load_balancing_loss_func(
     num_experts = routing_weights.size(-1)
 
     router_entropy, _, selected_experts = _dynamic_routing(
-        routing_weights, broadcast_threshhold, top_p, eps
+        routing_weights, entropy_threshhold, top_p, eps
     )
 
     entropy_loss = torch.mean(router_entropy, dim=0)
@@ -369,7 +369,7 @@ class DynamicRouterLoss(torch.nn.Module):
     def __init__(self, config: MixLoraConfig) -> None:
         super().__init__()
         self.aux_loss_coef = config.router_aux_loss_coef_
-        self.broadcast_threshhold: float = config.broadcast_threshhold_
+        self.entropy_threshhold: float = config.broadcast_threshhold_
         self.top_p: float = config.top_p_
         self.eps: float = config.entropy_eps_
 
@@ -378,7 +378,7 @@ class DynamicRouterLoss(torch.nn.Module):
         routing_weights = torch.nn.functional.softmax(concatenated_gate_logits, dim=-1)
         return self.aux_loss_coef * _dynamic_load_balancing_loss_func(
             routing_weights,
-            self.broadcast_threshhold,
+            self.entropy_threshhold,
             self.top_p,
             self.eps,
             attention_mask,

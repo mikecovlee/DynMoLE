@@ -6,13 +6,29 @@ from .abstracts import LLMDecoder, LLMModelInput
 
 
 @torch.jit.script
-def logits_entropy(
-    logits: torch.Tensor,
-    dim: int = -1,
+def tsallis_entropy(
+    p: torch.Tensor, q: float, normalize: bool = True, eps: float = 1e-5
+) -> torch.Tensor:
+    N = p.numel() // p.size(dim=-1)
+    if q == 1.0:
+        entropy = -torch.sum(p * torch.log(p + eps), dim=-1)
+        max_entropy = torch.log(torch.tensor(N, dtype=torch.float32))
+    else:
+        entropy = (1 - torch.sum(p**q / (1 + eps), dim=-1)) / (q - 1)
+        max_entropy = torch.tensor((1 - N ** (1 - q)) / (q - 1), dtype=torch.float32)
+
+    if normalize:
+        return entropy / max_entropy
+    else:
+        return entropy
+
+
+def shannon_entropy(
+    p: torch.Tensor,
+    normalize: bool = True,
     eps: float = 1e-5,
 ) -> torch.Tensor:
-    probs_neg_log = -torch.log(logits + eps)  # eps for 'p=0, -plogp=0'
-    return (logits * probs_neg_log).sum(dim=dim)
+    return tsallis_entropy(p, 1.0, normalize, eps)
 
 
 def collect_plugin_router_logtis(
