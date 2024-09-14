@@ -9,12 +9,13 @@ from .abstracts import LLMDecoder, LLMModelInput
 def tsallis_entropy(
     p: torch.Tensor, q: float, normalize: bool = True, eps: float = 1e-5
 ) -> torch.Tensor:
-    N = p.numel() // p.size(dim=-1)
+    p = p + eps  # eps for 'p=0, -plogp=0'
+    N = p.size(dim=-1)
     if q == 1.0:
-        entropy = -torch.sum(p * torch.log(p + eps), dim=-1)
+        entropy = -torch.sum(p * torch.log(p), dim=-1)
         max_entropy = torch.log(torch.tensor(N, dtype=torch.float32))
     else:
-        entropy = (1 - torch.sum(p**q / (1 + eps), dim=-1)) / (q - 1)
+        entropy = (1 - torch.sum(p**q, dim=-1)) / (q - 1)
         max_entropy = torch.tensor((1 - N ** (1 - q)) / (q - 1), dtype=torch.float32)
 
     if normalize:

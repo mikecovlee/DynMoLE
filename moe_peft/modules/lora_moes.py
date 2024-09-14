@@ -199,8 +199,8 @@ def _dynamic_load_balancing_loss_func(
     entropy_q: float = 1e-5,
     keep_top_k: int = 2,
     top_p: float = 0.75,
+    dyn_loss_coef: float = 0.01,
     aux_loss_coef: float = 0.001,
-    dyn_loss_coef: float = 0.001,
     attention_mask: Optional[torch.Tensor] = None,
 ) -> float:
     routing_weights = F.softmax(router_logits, dim=-1)
@@ -215,6 +215,12 @@ def _dynamic_load_balancing_loss_func(
     )
 
     entropy_loss = torch.mean(router_entropy, dim=0)
+
+    logging.info(f"    entropy loss:   {entropy_loss}")
+    router_profile = (routing_weights > 0.0).long().sum(-1).float()
+    logging.info(f"    max activated: {router_profile.max()}")
+    logging.info(f"    min activated: {router_profile.min()}")
+    logging.info(f"    avg activated: {router_profile.mean()}")
 
     expert_mask = (routing_weights > 0.0).long()
 
