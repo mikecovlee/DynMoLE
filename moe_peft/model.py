@@ -31,6 +31,7 @@ from moe_peft.modules import (
     lora_config_factory,
     moe_layer_factory,
     router_loss_factory,
+    unpack_router_logits,
 )
 from moe_peft.tasks import SequenceClassificationTask, task_dict
 from moe_peft.utils import is_package_available
@@ -494,6 +495,8 @@ class LLMModel(torch.nn.Module):
             end_idx = lora_config.batch_end_idx_
             output_data.batch_start_idx_ = start_idx
             output_data.batch_end_idx_ = end_idx
+            if input_args.output_router_logits_ and len(all_router_logits[idx]) > 0:
+                output_data.router_logits = unpack_router_logits(all_router_logits[idx])
             if labels is None:
                 continue
             # compute loss when labels provided
@@ -503,7 +506,7 @@ class LLMModel(torch.nn.Module):
                 labels[start_idx:end_idx],
             )
             output_data.loss_fn_ = None
-            if not input_args.output_router_logits_ or len(all_router_logits[idx]) == 0:
+            if output_data.router_logits is None:
                 continue
             # compute router loss when router logits is available
             loss_fn = router_loss_factory(
@@ -511,7 +514,7 @@ class LLMModel(torch.nn.Module):
             )
             if loss_fn is not None:
                 output_data.aux_loss = loss_fn(
-                    all_router_logits[idx], attention_mask[start_idx:end_idx]
+                    output_data.router_logits, attention_mask[start_idx:end_idx]
                 )
 
         return output

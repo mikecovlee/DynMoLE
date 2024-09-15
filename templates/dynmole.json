@@ -29,10 +29,8 @@
                 "up_proj": true
             },
             "routing_strategy": "dynmole",
-            "entropy_threshhold": 0.9,
-            "entropy_q": 1.5,
+            "entropy_threshhold": 0.95,
             "num_experts": 6,
-            "keep_top_k": 2,
             "top_p": 0.75,
             "group_by_length": false
         }

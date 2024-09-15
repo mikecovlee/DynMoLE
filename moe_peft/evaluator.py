@@ -7,7 +7,14 @@ from typing import Dict, List
 import torch
 
 from .model import LLMModel
-from .modules import InputData, LLMBatchConfig, LLMModelInput, MixLoraConfig, Prompt
+from .modules import (
+    InputData,
+    LLMBatchConfig,
+    LLMModelInput,
+    MixLoraConfig,
+    Prompt,
+    tsallis_entropy,
+)
 from .tasks import BasicMetric, BasicTask, CommonSenseTask, task_dict
 from .tokenizer import Tokenizer
 
@@ -19,10 +26,12 @@ class EvaluateConfig:
     data_path: str = None
     batch_size: int = 16
     router_profile: bool = False
+    router_entropy_index: float = 1.5
     # Do not set these manually
     task_: BasicTask = None
     data_: List[InputData] = None
     metric_: BasicMetric = None
+    entropy_: List[torch.Tensor] = None
     rollback_start_idx_: int = 0
     batch_start_idx_: int = 0
     batch_end_idx_: int = 0
@@ -85,6 +94,7 @@ class EvaluateConfig:
         self.task_ = None
         self.data_ = None
         self.metric_ = None
+        self.entropy_ = None
         self.rollback_start_idx_ = 0
         self.batch_start_idx_ = 0
         self.batch_end_idx_ = 0
@@ -171,6 +181,18 @@ def _compute_metrcis(model, current_configs, sequence_lengths, batch_labels, out
         logits = output.logits
 
         if config.router_profile:
+            if output.router_logits is not None:
+                if config.entropy_ is None:
+                    config.entropy_ = []
+                config.entropy_.append(
+                    tsallis_entropy(
+                        p=torch.softmax(output.router_logits, -1),
+                        q=config.router_entropy_index,
+                    )
+                    .detach()
+                    .mean()
+                )
+
             adapter_config = model.adapter_configs_[config.adapter_name]
             if isinstance(adapter_config, MixLoraConfig):
                 router_statistic_ = list(0 for _ in range(adapter_config.num_experts_))
@@ -224,6 +246,11 @@ def _compute_result(model, configs, save_file):
         compute_results = config.metric_.compute()
         result["metrics"] = compute_results
         if config.router_profile:
+            if config.entropy_ is not None:
+                result["metrics"]["router_entropy"] = float(
+                    torch.tensor(config.entropy_).mean()
+                )
+
             adapter_config = model.adapter_configs_[config.adapter_name]
             if isinstance(adapter_config, MixLoraConfig):
                 router_statistic_ = list(0 for _ in range(adapter_config.num_experts_))

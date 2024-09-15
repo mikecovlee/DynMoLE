@@ -52,6 +52,7 @@ class LLMModelConfig:
 class LLMModelOutput:
     adapter_name: str = None
     logits: torch.Tensor = None
+    router_logits: torch.Tensor = None
     loss: torch.Tensor = None
     aux_loss: torch.Tensor = None
     # for internal use
@@ -420,8 +421,8 @@ class MolaConfig(LoraConfig):
 @dataclass
 class DynMoleConfig(LoraConfig):
     entropy_threshhold_: float = None
+    entropy_index_: float = None
     entropy_eps_: float = None
-    entropy_q_: float = None
     keep_top_k_: int = None
     top_p_: float = None
     num_experts_: int = None
@@ -436,10 +437,14 @@ class DynMoleConfig(LoraConfig):
         assert (
             isinstance(self.entropy_threshhold_, float) and self.entropy_threshhold_ > 0
         )
+        assert (
+            isinstance(self.entropy_index_, float)
+            and self.entropy_index_ > 0
+            and self.entropy_index_ <= 2.0
+        )
         assert isinstance(self.entropy_eps_, float) and self.entropy_eps_ > 0
-        assert isinstance(self.entropy_q_, float) and self.entropy_q_ > 0
         assert isinstance(self.keep_top_k_, int) and self.keep_top_k_ > 0
-        assert isinstance(self.top_p_, float) and self.top_p_ > 0 and self.top_p_ <= 1
+        assert isinstance(self.top_p_, float) and self.top_p_ > 0 and self.top_p_ <= 1.0
         assert isinstance(self.num_experts_, int) and self.num_experts_ > 0
         assert (
             isinstance(self.router_init_range_, float) and self.router_init_range_ >= 0
@@ -460,8 +465,8 @@ class DynMoleConfig(LoraConfig):
     def from_config(config: Dict[str, any]) -> "DynMoleConfig":
         return DynMoleConfig(
             entropy_threshhold_=config.get("entropy_threshhold", 0.5),
+            entropy_index_=config.get("entropy_index", 1.5),
             entropy_eps_=config.get("entropy_eps", 1e-5),
-            entropy_q_=config.get("entropy_q", 1.5),
             keep_top_k_=config.get("keep_top_k", 2),
             top_p_=config.get("top_p", 0.75),
             num_experts_=config["num_experts"],
@@ -482,8 +487,8 @@ class DynMoleConfig(LoraConfig):
         config["routing_strategy"] = self.routing_strategy_
         config["num_experts"] = self.num_experts_
         config["entropy_threshhold"] = self.entropy_threshhold_
+        config["entropy_index"] = self.entropy_index_
         config["entropy_eps"] = self.entropy_eps_
-        config["entropy_q"] = self.entropy_q_
         config["keep_top_k"] = self.keep_top_k_
         config["top_p"] = self.top_p_
 

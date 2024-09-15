@@ -67,7 +67,12 @@ from .lora_moes import (
     router_loss_dict,
     router_loss_factory,
 )
-from .moe_utils import collect_plugin_router_logtis, shannon_entropy, tsallis_entropy
+from .moe_utils import (
+    collect_plugin_router_logtis,
+    shannon_entropy,
+    tsallis_entropy,
+    unpack_router_logits,
+)
 from .rope import ROPE_INIT_FUNCTIONS
 
 __all__ = [
@@ -85,8 +90,9 @@ __all__ = [
     "CheckpointRecomputeFunction",
     "CHECKPOINT_CLASSES",
     "FeedForward",
-    "shannon_entropy",
     "tsallis_entropy",
+    "shannon_entropy",
+    "unpack_router_logits",
     "collect_plugin_router_logtis",
     "get_range_tensor",
     "Lora",
