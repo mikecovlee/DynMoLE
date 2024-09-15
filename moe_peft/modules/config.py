@@ -465,7 +465,7 @@ class DynMoleConfig(LoraConfig):
     def from_config(config: Dict[str, any]) -> "DynMoleConfig":
         return DynMoleConfig(
             entropy_threshhold_=config.get("entropy_threshhold", 0.5),
-            entropy_index_=config.get("entropy_index", 1.5),
+            entropy_index_=config.get("entropy_index", 1.2),
             entropy_eps_=config.get("entropy_eps", 1e-5),
             keep_top_k_=config.get("keep_top_k", 2),
             top_p_=config.get("top_p", 0.75),
@@ -475,7 +475,7 @@ class DynMoleConfig(LoraConfig):
                 "router_aux_loss_coef", 0.001
             ),  # for training
             router_dyn_loss_coef_=config.get(
-                "router_dyn_loss_coef", 0.01
+                "router_dyn_loss_coef", 0.001
             ),  # for training
             router_loss_=config.get("router_loss", True),
             **LoraConfig.from_config(config).__dict__,

@@ -158,30 +158,24 @@ class MolaSparseMoe(LLMMoeBlock):
 def _dynamic_routing(
     router_logits: torch.Tensor,
     entropy_threshhold: float,
-    entropy_index: float = 1.5,
+    entropy_index: float = 1.2,
     entropy_eps: float = 1e-5,
     keep_top_k: int = 2,
     top_p: float = 0.75,
 ):
     # top-p routing
     sorted_logits, sorted_indices = torch.sort(router_logits, dim=-1, descending=True)
-    cumulative_probs = sorted_logits.cumsum(dim=-1)
+    cumulative_probs = torch.cumsum(sorted_logits, dim=-1)
     expert_mask = cumulative_probs > top_p
     # keep top-k
-    if expert_mask.dim() == 3:
-        expert_mask[:, :, :keep_top_k] = False
-    elif expert_mask.dim() == 2:
-        expert_mask[:, :keep_top_k] = False
-    else:
-        raise RuntimeError(f"invalid dim of expert_mask: {expert_mask.dim()}")
+    expert_mask[..., :keep_top_k] = False
     # scatter final mask
-    expert_mask = torch.scatter(
-        torch.zeros_like(expert_mask, dtype=torch.bool), -1, sorted_indices, expert_mask
-    )
+    final_mask = torch.zeros_like(expert_mask, dtype=torch.bool)
+    final_mask = torch.scatter(final_mask, -1, sorted_indices, expert_mask)
     # calculate entropy
     router_entropy = tsallis_entropy(p=router_logits, q=entropy_index, eps=entropy_eps)
     # broadcast if higher than threshhold
-    expert_mask[router_entropy >= entropy_threshhold] = False
+    final_mask[router_entropy >= entropy_threshhold] = False
     # mask deactivate experts
     routing_weights = router_logits.masked_fill(expert_mask, 0.0)
     return routing_weights
@@ -199,11 +193,11 @@ def _tsallis_entropy_loss(p: torch.Tensor, q: float, eps: float = 1e-5) -> float
 def _dynamic_load_balancing_loss_func(
     router_logits: torch.Tensor,
     entropy_threshhold: float,
-    entropy_index: float = 1.5,
+    entropy_index: float = 1.2,
     entropy_eps: float = 1e-5,
     keep_top_k: int = 2,
     top_p: float = 0.75,
-    dyn_loss_coef: float = 0.01,
+    dyn_loss_coef: float = 0.001,
     aux_loss_coef: float = 0.001,
     attention_mask: Optional[torch.Tensor] = None,
 ) -> float:
