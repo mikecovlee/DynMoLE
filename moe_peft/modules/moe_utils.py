@@ -7,11 +7,16 @@ from .abstracts import LLMDecoder, LLMModelInput
 
 
 @torch.jit.script
+def soft_clip(p: torch.Tensor, min_val: float = 1e-5, max_val: float = 1.0):
+    return min_val + (max_val - min_val) * torch.sigmoid(p)
+
+
+@torch.jit.script
 def tsallis_entropy(
     p: torch.Tensor, q: float, normalize: bool = True, eps: float = 1e-5
 ) -> torch.Tensor:
-    p = torch.clamp(p, min=eps)  # eps for 'p=0, -plogp=0'
     N = p.size(dim=-1)
+    p = soft_clip(p, min_val=eps)
     if q == 1.0:
         entropy = -torch.sum(p * torch.log(p), dim=-1)
         max_entropy = torch.log(torch.tensor(N, dtype=torch.float32))
