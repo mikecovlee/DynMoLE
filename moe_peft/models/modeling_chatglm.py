@@ -19,6 +19,7 @@ from moe_peft.modules import (
     LLMForCausalLM,
     LLMModelConfig,
     LLMModelInput,
+    collect_plugin_router_logtis,
     flash_attention_forward,
 )
 from moe_peft.modules.mix_lora import _slice_tensor
@@ -634,6 +635,11 @@ class GLMDecoderLayer(LLMDecoder):
             mlp_output, p=self.hidden_dropout, training=not input_args.inference_mode_
         )
         output = residual + output
+
+        if input_args.output_router_logits_:
+            router_logits = collect_plugin_router_logtis(
+                router_logits, input_args, self
+            )
 
         return output, *router_logits
 

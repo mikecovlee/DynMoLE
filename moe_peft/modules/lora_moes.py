@@ -216,7 +216,7 @@ def _dynamic_load_balancing_loss_func(
 
     entropy_loss = torch.mean(router_entropy, dim=0)
 
-    logging.info(f"    entropy loss:   {entropy_loss}")
+    logging.info(f"    entropy loss:  {entropy_loss}")
     router_profile = (routing_weights > 0.0).long().sum(-1).float()
     logging.info(f"    max activated: {router_profile.max()}")
     logging.info(f"    min activated: {router_profile.min()}")
