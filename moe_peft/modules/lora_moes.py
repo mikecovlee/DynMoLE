@@ -158,10 +158,10 @@ class MolaSparseMoe(LLMMoeBlock):
 def _dynamic_routing(
     router_logits: torch.Tensor,
     entropy_threshold: float,
-    entropy_index: float = 1.2,
-    entropy_eps: float = 1e-5,
-    keep_top_k: int = 2,
-    top_p: float = 0.75,
+    entropy_index: float,
+    entropy_eps: float,
+    keep_top_k: int,
+    top_p: float,
 ):
     # Top-p routing
     sorted_logits, sorted_indices = torch.sort(router_logits, dim=-1, descending=True)
@@ -193,12 +193,12 @@ def _dynamic_routing(
 def _dynamic_load_balancing_loss_func(
     router_logits: torch.Tensor,
     entropy_threshold: float,
-    entropy_index: float = 1.2,
-    entropy_eps: float = 1e-5,
-    keep_top_k: int = 2,
-    top_p: float = 0.75,
-    dyn_loss_coef: float = 0.01,
-    aux_loss_coef: float = 0.001,
+    entropy_index: float,
+    entropy_eps: float,
+    keep_top_k: int,
+    top_p: float,
+    dyn_loss_coef: float,
+    aux_loss_coef: float,
     attention_mask: Optional[torch.Tensor] = None,
 ) -> float:
     orig_routing_weights = F.softmax(router_logits, dim=-1)

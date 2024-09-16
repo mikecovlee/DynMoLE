@@ -26,7 +26,7 @@ class EvaluateConfig:
     data_path: str = None
     batch_size: int = 16
     router_profile: bool = False
-    router_entropy_index: float = 1.2
+    router_entropy_index: float = 1.1
     # Do not set these manually
     task_: BasicTask = None
     data_: List[InputData] = None

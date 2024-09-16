@@ -464,8 +464,8 @@ class DynMoleConfig(LoraConfig):
     @staticmethod
     def from_config(config: Dict[str, any]) -> "DynMoleConfig":
         return DynMoleConfig(
-            entropy_threshold_=config.get("entropy_threshold", 0.5),
-            entropy_index_=config.get("entropy_index", 1.2),
+            entropy_threshold_=config.get("entropy_threshold", 0.9),
+            entropy_index_=config.get("entropy_index", 1.1),
             entropy_eps_=config.get("entropy_eps", 1e-5),
             keep_top_k_=config.get("keep_top_k", 2),
             top_p_=config.get("top_p", 0.75),
