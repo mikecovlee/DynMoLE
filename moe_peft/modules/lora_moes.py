@@ -16,7 +16,7 @@ from .mix_lora import (
     SwitchRouterLoss,
     SwitchSparseMoe,
 )
-from .moe_utils import soft_clip, tsallis_entropy
+from .moe_utils import tsallis_entropy
 
 
 class LoraMoe(LLMMoeBlock):
@@ -157,65 +157,66 @@ class MolaSparseMoe(LLMMoeBlock):
 @torch.jit.script
 def _dynamic_routing(
     router_logits: torch.Tensor,
-    entropy_threshhold: float,
+    entropy_threshold: float,
     entropy_index: float = 1.2,
     entropy_eps: float = 1e-5,
     keep_top_k: int = 2,
     top_p: float = 0.75,
 ):
-    # top-p routing
+    # Top-p routing
     sorted_logits, sorted_indices = torch.sort(router_logits, dim=-1, descending=True)
     cumulative_probs = torch.cumsum(sorted_logits, dim=-1)
-    expert_mask = cumulative_probs > top_p
-    # keep top-k
-    expert_mask[..., :keep_top_k] = False
-    # scatter final mask
-    final_mask = torch.zeros_like(expert_mask, dtype=torch.bool)
-    final_mask = torch.scatter(final_mask, -1, sorted_indices, expert_mask)
-    # calculate entropy
+
+    # Create a mask for Top-p experts
+    expert_mask = (cumulative_probs <= top_p).to(router_logits.dtype)
+
+    # Ensure at least top-k experts are kept
+    expert_mask[..., :keep_top_k] = 1  # Keep at least top-k experts
+
+    # Scatter final mask back to original shape using sorted indices
+    final_mask = torch.zeros_like(router_logits)
+    final_mask.scatter_(-1, sorted_indices, expert_mask)
+
+    # Calculate entropy using Tsallis entropy
     router_entropy = tsallis_entropy(p=router_logits, q=entropy_index, eps=entropy_eps)
-    # broadcast if higher than threshhold
-    final_mask[router_entropy >= entropy_threshhold] = False
-    # mask deactivate experts
-    router_logits = router_logits * (~final_mask).float()
-    return router_logits
 
+    # Broadcast if entropy is higher than threshold (set all experts active)
+    high_entropy_mask = router_entropy > entropy_threshold
+    final_mask[high_entropy_mask] = 1  # Activate all experts for high-entropy tokens
 
-def _tsallis_entropy_loss(p: torch.Tensor, q: float, eps: float = 1e-5) -> float:
-    p = soft_clip(p, min_val=eps)
-    p = p / torch.sum(p)
-    if q == 1.0:
-        return -torch.sum(p * torch.log(p))
-    else:
-        return (1 - torch.sum(p**q)) / (q - 1)
+    # Apply mask to router logits (deactivate non-selected experts)
+    router_logits = router_logits * final_mask
+
+    return router_entropy, router_logits
 
 
 def _dynamic_load_balancing_loss_func(
     router_logits: torch.Tensor,
-    entropy_threshhold: float,
+    entropy_threshold: float,
     entropy_index: float = 1.2,
     entropy_eps: float = 1e-5,
     keep_top_k: int = 2,
     top_p: float = 0.75,
-    dyn_loss_coef: float = 0.001,
+    dyn_loss_coef: float = 0.01,
     aux_loss_coef: float = 0.001,
     attention_mask: Optional[torch.Tensor] = None,
 ) -> float:
     orig_routing_weights = F.softmax(router_logits, dim=-1)
 
-    entropy_loss = _tsallis_entropy_loss(
-        orig_routing_weights, entropy_index, entropy_eps
-    )
-
-    routing_weights = _dynamic_routing(
+    # Dynamic routing
+    router_entropy, routing_weights = _dynamic_routing(
         router_logits=orig_routing_weights,
-        entropy_threshhold=entropy_threshhold,
-        entropy_eps=entropy_eps,
+        entropy_threshold=entropy_threshold,
         entropy_index=entropy_index,
+        entropy_eps=entropy_eps,
         keep_top_k=keep_top_k,
         top_p=top_p,
     )
 
+    # Entropy loss
+    entropy_loss = router_entropy.mean()
+
+    # Router profile statistics
     router_profile = (routing_weights > 0.0).long().sum(-1).float()
     logging.info(f"    max activated: {router_profile.max()}")
     logging.info(f"    min activated: {router_profile.min()}")
@@ -224,7 +225,7 @@ def _dynamic_load_balancing_loss_func(
     num_experts = routing_weights.size(-1)
 
     if attention_mask is None:
-        # Compute the percentage of tokens routed to each experts
+        # Compute the percentage of tokens routed to each expert
         tokens_per_expert = torch.mean(routing_weights, dim=0)
 
         # Compute the average probability of routing to these experts
@@ -236,21 +237,24 @@ def _dynamic_load_balancing_loss_func(
         # Compute the mask that masks all padding tokens as 0
         per_expert_attention_mask = (
             attention_mask[None, :, :, None]
-            .expand((num_hidden_layers, batch_size, sequence_length, num_experts))
+            .expand(num_hidden_layers, batch_size, sequence_length, num_experts)
             .reshape(-1, num_experts)
             .to(routing_weights.device)
         )
 
-        # Compute the percentage of tokens routed to each experts
+        # Compute the sum of attention mask along the token dimension
+        sum_per_expert_attention_mask = torch.sum(per_expert_attention_mask, dim=0)
+
+        # Compute the percentage of tokens routed to each expert and the average routing probability
         tokens_per_expert = torch.sum(
             routing_weights * per_expert_attention_mask, dim=0
-        ) / torch.sum(per_expert_attention_mask, dim=0)
+        ) / (sum_per_expert_attention_mask + 1e-8)
 
-        # Compute the average probability of routing to these experts
         router_prob_per_expert = torch.sum(
             orig_routing_weights * per_expert_attention_mask, dim=0
-        ) / torch.sum(per_expert_attention_mask, dim=0)
+        ) / (sum_per_expert_attention_mask + 1e-8)
 
+    # Load balance loss
     load_balance_loss = num_experts * torch.sum(
         tokens_per_expert * router_prob_per_expert
     )
@@ -266,7 +270,7 @@ class DynMoleRouterLoss(torch.nn.Module):
     def forward(self, gate_logits, attention_mask) -> torch.Tensor:
         return _dynamic_load_balancing_loss_func(
             router_logits=gate_logits,
-            entropy_threshhold=self.config.entropy_threshhold_,
+            entropy_threshold=self.config.entropy_threshold_,
             entropy_index=self.config.entropy_index_,
             entropy_eps=self.config.entropy_eps_,
             keep_top_k=self.config.keep_top_k_,
@@ -318,9 +322,9 @@ class DynMole(LLMMoeBlock):
         router_logits = self.gate_(hidden_states.to(self.dtype_))
         self.router_logits_ = router_logits.reshape(-1, self.experts_)
         routing_weights = F.softmax(router_logits, dim=-1, dtype=torch.float32)
-        routing_weights = _dynamic_routing(
+        _, routing_weights = _dynamic_routing(
             router_logits=routing_weights,
-            entropy_threshhold=self.config_.entropy_threshhold_,
+            entropy_threshold=self.config_.entropy_threshold_,
             entropy_index=self.config_.entropy_index_,
             entropy_eps=self.config_.entropy_eps_,
             keep_top_k=self.config_.keep_top_k_,
@@ -332,7 +336,7 @@ class DynMole(LLMMoeBlock):
                 f"moe.{self.adapter_name_}.experts.{expert_idx}"
             ]
             residual = residual + (
-                routing_weights[:, :, expert_idx].unsqueeze(-1)
+                routing_weights[..., expert_idx].unsqueeze(-1)
                 * expert_lora.lora_forward(hidden_states)
             ).to(hidden_states.dtype)
 
