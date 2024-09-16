@@ -20,6 +20,7 @@ from moe_peft.modules import (
     LLMForCausalLM,
     LLMModelConfig,
     LLMModelInput,
+    collect_plugin_router_logtis,
     eager_attention_forward,
     flash_attention_forward,
     prepare_4d_causal_attention_mask,
@@ -433,6 +434,11 @@ class Phi3DecoderLayer(LLMDecoder):
         hidden_states = self.post_attention_layernorm_(hidden_states)
         hidden_states, router_logits = self.mlp_.forward(hidden_states, input_args)
         hidden_states = residual + self.resid_mlp_dropout(hidden_states)
+
+        if input_args.output_router_logits_:
+            router_logits = collect_plugin_router_logtis(
+                router_logits, input_args, self
+            )
 
         return hidden_states, *router_logits
 

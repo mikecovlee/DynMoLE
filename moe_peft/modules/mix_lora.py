@@ -42,23 +42,13 @@ def _mixlora_compatible_forward(
     return final_expert_states
 
 
-def _unpack_router_logits(gate_logits: List[torch.Tensor]):
-    compute_device = gate_logits[0].device
-    concatenated_gate_logits = torch.cat(
-        [layer_gate.to(compute_device) for layer_gate in gate_logits], dim=0
-    )
-    return concatenated_gate_logits
-
-
 def _mixtral_load_balancing_loss_func(
     gate_logits: List[torch.Tensor],
     num_experts: int,
     top_k: int,
     attention_mask: Optional[torch.Tensor] = None,
 ) -> float:
-    concatenated_gate_logits = _unpack_router_logits(gate_logits)
-
-    routing_weights = torch.nn.functional.softmax(concatenated_gate_logits, dim=-1)
+    routing_weights = torch.nn.functional.softmax(gate_logits, dim=-1)
 
     _, selected_experts = torch.topk(routing_weights, top_k, dim=-1)
 
@@ -317,8 +307,7 @@ class DynamicRouterLoss(torch.nn.Module):
         self.temperature = config.temperature_
 
     def forward(self, gate_logits, attention_mask) -> torch.Tensor:
-        concatenated_gate_logits = _unpack_router_logits(gate_logits)
-        routing_weights = torch.nn.functional.softmax(concatenated_gate_logits, dim=-1)
+        routing_weights = torch.nn.functional.softmax(gate_logits, dim=-1)
         return self.aux_loss_coef * _dynamic_load_balancing_loss_func(
             routing_weights,
             self.experts,
@@ -474,61 +463,23 @@ class DynamicSparseMoe(LLMMoeBlock):
 
 
 def _switch_router_z_loss_func(router_logits: torch.Tensor) -> float:
-    num_groups, tokens_per_group, _ = router_logits.shape
     log_z = torch.logsumexp(router_logits, dim=-1)
     z_loss = log_z**2
-    return torch.sum(z_loss) / (num_groups * tokens_per_group)
+    return torch.sum(z_loss) / (router_logits.size(0))
 
 
-def _switch_recompute_expert_indices(
-    router_probs: torch.Tensor, num_experts: int, expert_capacity: int
-) -> torch.Tensor:
-    expert_index = torch.argmax(router_probs, dim=-1)
-    expert_index = torch.nn.functional.one_hot(expert_index, num_classes=num_experts)
+def _switch_load_balancing_loss_func(router_probs: torch.Tensor) -> float:
+    num_experts = router_probs.size(-1)
 
-    # Mask tokens outside expert capacity. Sum over each sequence
-    token_priority = torch.cumsum(expert_index, dim=-2)
-    # mask if the token routed to to the expert will overflow
-    expert_capacity_mask = token_priority <= expert_capacity
-    expert_index = expert_index * expert_capacity_mask
-    expert_index = torch.argmax(expert_index, dim=-1)
+    expert_mask = torch.argmax(router_probs, dim=-1)
+    expert_mask = torch.nn.functional.one_hot(expert_mask, num_classes=num_experts)
 
-    return expert_index
+    tokens_per_group_and_expert = torch.mean(expert_mask.float(), dim=0)
 
-
-def _switch_load_balancing_loss_func(
-    router_probs: torch.Tensor, expert_indices: torch.Tensor
-) -> float:
-    num_experts = router_probs.shape[-1]
-
-    # cast the expert indices to int64, otherwise one-hot encoding will fail
-    if expert_indices.dtype != torch.int64:
-        expert_indices = expert_indices.to(torch.int64)
-
-    if len(expert_indices.shape) == 2:
-        expert_indices = expert_indices.unsqueeze(2)
-
-    expert_mask = torch.nn.functional.one_hot(expert_indices, num_experts)
-
-    # For a given token, determine if it was routed to a given expert.
-    expert_mask = torch.max(expert_mask, axis=-2).values
-
-    # cast to float32 otherwise mean will fail
-    expert_mask = expert_mask.to(torch.float32)
-    tokens_per_group_and_expert = torch.mean(expert_mask, axis=-2)
-
-    router_prob_per_group_and_expert = torch.mean(router_probs, axis=-2)
+    router_prob_per_group_and_expert = torch.mean(router_probs, dim=0)
     return torch.mean(
         tokens_per_group_and_expert * router_prob_per_group_and_expert
     ) * (num_experts**2)
-
-
-def _switch_unpack_router_logits(router_outputs):
-    total_router_logits = []
-    for router_logits in router_outputs:
-        if len(router_logits.shape) > 1:
-            total_router_logits.append(router_logits)
-    return torch.cat(total_router_logits, dim=1)
 
 
 class SwitchRouterLoss(torch.nn.Module):
@@ -539,15 +490,11 @@ class SwitchRouterLoss(torch.nn.Module):
         self.z_loss_coef = config.router_z_loss_coef_
         self.aux_loss_coef = config.router_aux_loss_coef_
 
-    def forward(self, router_outputs, attention_mask) -> torch.Tensor:
-        router_logits = _switch_unpack_router_logits(router_outputs)
+    def forward(self, router_logits, attention_mask) -> torch.Tensor:
         z_loss = _switch_router_z_loss_func(router_logits)
         router_probs = F.softmax(router_logits, dim=-1)
         # recompute expert indexes due to MoE-PEFT constraints
-        expert_indexes = _switch_recompute_expert_indices(
-            router_probs, self.experts, self.expert_capacity_
-        )
-        aux_loss = _switch_load_balancing_loss_func(router_probs, expert_indexes)
+        aux_loss = _switch_load_balancing_loss_func(router_probs)
         return self.z_loss_coef * z_loss + self.aux_loss_coef * aux_loss
 
 
@@ -673,4 +620,4 @@ class SwitchSparseMoe(LLMMoeBlock):
         else:
             hidden_states = self.dropout_(router_probs * next_states).to(input_dtype)
 
-        return hidden_states, router_logits
+        return hidden_states, router_logits.reshape(-1, self.experts_)

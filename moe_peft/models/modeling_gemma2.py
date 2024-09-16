@@ -19,6 +19,7 @@ from moe_peft.modules import (
     LLMForCausalLM,
     LLMModelConfig,
     LLMModelInput,
+    collect_plugin_router_logtis,
     flash_attention_forward,
     prepare_4d_causal_attention_mask,
 )
@@ -358,6 +359,11 @@ class Gemma2DecoderLayer(LLMDecoder):
         hidden_states, router_logits = self.mlp_.forward(hidden_states, input_args)
         hidden_states = self.post_feedforward_layernorm_(hidden_states)
         hidden_states = residual + hidden_states
+
+        if input_args.output_router_logits_:
+            router_logits = collect_plugin_router_logtis(
+                router_logits, input_args, self
+            )
 
         return hidden_states, *router_logits
 

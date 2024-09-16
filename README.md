@@ -53,9 +53,8 @@ You can use the `MOE_PEFT_BACKEND_TYPE` environment variable to force MoE-PEFT t
 |---------|----------------------------------------------------------|-----------------------------------------------------------|
 | &check; | [MoLA](https://arxiv.org/abs/2402.08562)                 | `"routing_strategy": "mola", "num_experts": 8`            |
 | &check; | [LoRAMoE](https://arxiv.org/abs/2312.09979)              | `"routing_strategy": "loramoe", "num_experts": 8`         |
+| &check; | DynMoLE                                                  | `"routing_strategy": "dynmole", "num_experts": 8`         |
 | &check; | [MixLoRA](https://arxiv.org/abs/2404.15159)              | `"routing_strategy": "mixlora", "num_experts": 8`         |
-| &check; | MixLoRA-Switch                                           | `"routing_strategy": "mixlora-switch", "num_experts": 8`  |
-| &check; | MixLoRA-Dynamic                                          | `"routing_strategy": "mixlora-dynamic", "num_experts": 8` |
 | &check; | [QLoRA](https://arxiv.org/abs/2402.12354)                | See *Quantize Methods*                                    |
 | &check; | [LoRA+](https://arxiv.org/abs/2402.12354)                | `"loraplus_lr_ratio": 20.0`                               |
 | &check; | [DoRA](https://arxiv.org/abs/2402.09353)                 | `"use_dora": true`                                        |

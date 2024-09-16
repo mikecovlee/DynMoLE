@@ -6,7 +6,7 @@
     "train_strategy": "optim",
     "lora": [
         {
-            "name": "mixlora",
+            "name": "dynmole",
             "task_name": "",
             "optim": "adamw",
             "scheduler_type": "constant",
@@ -16,20 +16,23 @@
             "micro_batch_size": 8,
             "evaluate_batch_size": 16,
             "num_epochs": 2,
-            "r": 16,
-            "lora_alpha": 32,
+            "r": 24,
+            "lora_alpha": 48,
             "lora_dropout": 0.05,
             "target_modules": {
-                "q_proj": true,
-                "k_proj": true,
-                "v_proj": true,
-                "dense": true,
-                "fc1": true,
-                "fc2": true
+                "q_proj": false,
+                "k_proj": false,
+                "v_proj": false,
+                "o_proj": false,
+                "gate_proj": true,
+                "down_proj": true,
+                "up_proj": true
             },
-            "routing_strategy": "mixlora-dynamic",
-            "num_experts": 8,
-            "top_p": 0.8,
+            "routing_strategy": "dynmole",
+            "entropy_threshold": 0.9,
+            "entropy_index": 1.1,
+            "num_experts": 6,
+            "top_p": 0.75,
             "group_by_length": false
         }
     ]
