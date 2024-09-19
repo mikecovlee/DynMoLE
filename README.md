@@ -10,7 +10,7 @@ MoE-PEFT is an open-source *LLMOps* framework built on [m-LoRA](https://github.c
 
 - Concurrent fine-tuning, evaluation, and inference of multiple adapters with a shared pre-trained model.
 
-- **MoE PEFT** optimization, mainly for [MixLoRA](https://github.com/TUDB-Labs/MixLoRA) and other MoE implementation.
+- **MoE PEFT** optimization, mainly for [MixLoRA](https://github.com/TUDB-Labs/MixLoRA), DynMoLE and other MoLE implementation.
 
 - Support for multiple PEFT algorithms and various pre-trained models.
 
@@ -55,6 +55,7 @@ You can use the `MOE_PEFT_EXECUTOR_TYPE` environment variable to force MoE-PEFT 
 | &check; | [LoRAMoE](https://arxiv.org/abs/2312.09979)              | `"routing_strategy": "loramoe", "num_experts": 8`         |
 | &check; | DynMoLE                                                  | `"routing_strategy": "dynmole", "num_experts": 8`         |
 | &check; | [MixLoRA](https://arxiv.org/abs/2404.15159)              | `"routing_strategy": "mixlora", "num_experts": 8`         |
+| &check; | [LoRA](https://arxiv.org/abs/2106.09685)                 | `"r": 8, "lora_alpha": 16, "lora_dropout": 0.05`          |
 | &check; | [QLoRA](https://arxiv.org/abs/2402.12354)                | See *Quantize Methods*                                    |
 | &check; | [LoRA+](https://arxiv.org/abs/2402.12354)                | `"loraplus_lr_ratio": 20.0`                               |
 | &check; | [DoRA](https://arxiv.org/abs/2402.09353)                 | `"use_dora": true`                                        |
