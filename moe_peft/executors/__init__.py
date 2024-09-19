@@ -24,7 +24,7 @@ def _init_executor():
         return executor_dict[env]()
     elif torch.cuda.is_available():
         return CUDAExecutor()
-    elif torch.executors.mps.is_available():
+    elif torch.backends.mps.is_available():
         return MPSExecutor()
     else:
         return CPUExecutor()

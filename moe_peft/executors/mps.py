@@ -16,7 +16,7 @@ class MPSExecutor(BasicExecutor):
         return "mps"
 
     def is_available(self) -> bool:
-        return torch.executors.mps.is_available() and torch.executors.mps.is_built()
+        return torch.backends.mps.is_available() and torch.backends.mps.is_built()
 
     def is_initialized(self) -> bool:
         # TODO: change to official implementation

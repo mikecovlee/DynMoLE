@@ -34,12 +34,12 @@ class CUDAExecutor(BasicExecutor):
         torch.cuda.empty_cache()
 
     def use_deterministic_algorithms(self, mode: bool):
-        torch.executors.cudnn.benchmark = not mode
-        torch.executors.cudnn.deterministic = mode
+        torch.backends.cudnn.benchmark = not mode
+        torch.backends.cudnn.deterministic = mode
 
     def allow_tf32(self, mode: bool):
-        torch.executors.cudnn.allow_tf32 = mode
-        torch.executors.cuda.matmul.allow_tf32 = mode
+        torch.backends.cudnn.allow_tf32 = mode
+        torch.backends.cuda.matmul.allow_tf32 = mode
 
     def set_rng_state(self, device, state):
         with torch.cuda.device(device):

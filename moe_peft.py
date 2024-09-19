@@ -9,6 +9,7 @@ import torch
 from transformers.utils import is_flash_attn_2_available
 
 import moe_peft
+import moe_peft.adapters
 
 # Command Line Arguments
 parser = argparse.ArgumentParser(description="MoE-PEFT main program")
@@ -164,7 +165,7 @@ def init_adapter_config(
         if args.load_adapter:
             llm_model.load_adapter(adapter_path, adapter_name)
         else:
-            llm_model.init_adapter(moe_peft.lora_config_factory(lora_config))
+            llm_model.init_adapter(moe_peft.adapters.lora_config_factory(lora_config))
 
         if args.inference:
             config_class = moe_peft.GenerateConfig(adapter_name=adapter_name)

@@ -7,9 +7,7 @@ from .common import (
     LLMModelInput,
     LLMModelOutput,
     LoraConfig,
-    MixLoraConfig,
     cache_factory,
-    lora_config_factory,
 )
 from .dispatcher import Dispatcher, TrainTask
 from .evaluator import EvaluateConfig, evaluate
@@ -38,8 +36,6 @@ __all__ = [
     "LLMModelInput",
     "AdapterConfig",
     "LoraConfig",
-    "MixLoraConfig",
-    "lora_config_factory",
     "TrainTask",
     "Dispatcher",
     "EvaluateConfig",
