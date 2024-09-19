@@ -18,7 +18,7 @@ from moe_peft.adapters import (
     moe_layer_factory,
     router_loss_factory,
 )
-from moe_peft.backends import backend
+from moe_peft.executors import executor
 from moe_peft.models import from_pretrained
 from moe_peft.modules import (
     CHECKPOINT_CLASSES,
@@ -544,7 +544,7 @@ class LLMModel(torch.nn.Module):
             logging.info("Loading model with half precision.")
 
         # BFloat16 is only supported after Ampere GPUs
-        if not backend.is_bf16_supported():
+        if not executor.is_bf16_supported():
             if load_dtype == torch.bfloat16:
                 logging.warning("bf16 is not available. deprecated to fp16.")
                 load_dtype = torch.float16

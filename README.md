@@ -20,14 +20,14 @@ You can try MoE-PEFT with [Google Colab](https://githubtocolab.com/TUDB-Labs/MoE
 
 ## Supported Platform
 
-| OS      | Backend | Model Precision        | Quantization  | Flash Attention |
+| OS      | Executor | Model Precision        | Quantization  | Flash Attention |
 |---------|---------|------------------------|---------------|-----------------|
 | Linux   | CUDA    | FP32, FP16, TF32, BF16 | 8bit and 4bit | &check;         |
 | Windows | CUDA    | FP32, FP16, TF32, BF16 | 8bit and 4bit | -               |
 | macOS   | MPS     | FP32, FP16, BF16       | &cross;       | &cross;         |
 | All     | CPU     | FP32, FP16, BF16       | &cross;       | &cross;         |
 
-You can use the `MOE_PEFT_BACKEND_TYPE` environment variable to force MoE-PEFT to use a specific backend. For example, if you want MoE-PEFT to run only on CPU, you can set `MOE_PEFT_BACKEND_TYPE=CPU` before importing `moe_peft`.
+You can use the `MOE_PEFT_EXECUTOR_TYPE` environment variable to force MoE-PEFT to use a specific executor. For example, if you want MoE-PEFT to run only on CPU, you can set `MOE_PEFT_EXECUTOR_TYPE=CPU` before importing `moe_peft`.
 
 ## Supported Pre-trained Models
 

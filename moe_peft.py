@@ -232,15 +232,15 @@ if __name__ == "__main__":
 
     moe_peft.setup_logging("INFO", args.log_file)
 
-    moe_peft_backend = moe_peft.backend
+    moe_peft_executor = moe_peft.executor
 
-    if not moe_peft_backend.check_available():
+    if not moe_peft_executor.check_available():
         exit(-1)
 
     if args.attn_impl is None:
         if (
             inference_mode
-            and moe_peft_backend.device_name() == "cuda"
+            and moe_peft_executor.device_name() == "cuda"
             and is_flash_attn_2_available()
         ):
             args.attn_impl = "flash_attn"
@@ -248,11 +248,11 @@ if __name__ == "__main__":
             args.attn_impl = "eager"
 
     if args.device is None:
-        args.device = moe_peft.backend.default_device_name()
+        args.device = moe_peft.executor.default_device_name()
 
-    moe_peft_backend.use_deterministic_algorithms(args.deterministic)
-    moe_peft_backend.allow_tf32(args.tf32)
-    moe_peft_backend.manual_seed(args.seed)
+    moe_peft_executor.use_deterministic_algorithms(args.deterministic)
+    moe_peft_executor.allow_tf32(args.tf32)
+    moe_peft_executor.manual_seed(args.seed)
 
     with open(args.config, "r", encoding="utf8") as fp:
         config = json.load(fp)
@@ -260,7 +260,7 @@ if __name__ == "__main__":
     tokenizer, model = load_base_model()
     adapters = init_adapter_config(config, model)
 
-    moe_peft_backend.empty_cache()
+    moe_peft_executor.empty_cache()
 
     if os.getenv("MOE_PEFT_EVALUATE_MODE") is None:
         logging.info("Using efficient operators.")

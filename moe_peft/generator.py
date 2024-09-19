@@ -5,7 +5,7 @@ from typing import Callable, Dict, List, Optional, Tuple, Union
 
 import torch
 
-from moe_peft.backends import backend
+from moe_peft.executors import executor
 from moe_peft.model import LLMModel
 from moe_peft.modules import LLMBatchConfig, LLMModelInput, Tokens, cache_factory
 from moe_peft.prompter import Prompter
@@ -294,7 +294,7 @@ def _batch_generate(
     max_tokens_len: int,
     min_tokens_len: int,
 ):
-    backend.empty_cache()
+    executor.empty_cache()
     device = torch.device(model.device_)
     batch_size = len(input_tokens)
     if max_gen_len is None:

@@ -2,10 +2,10 @@ import contextlib
 
 import torch
 
-from .common import BasicBackend
+from .common import BasicExecutor
 
 
-class MPSBackend(BasicBackend):
+class MPSExecutor(BasicExecutor):
     def __init__(self) -> None:
         super().__init__()
 
@@ -16,7 +16,7 @@ class MPSBackend(BasicBackend):
         return "mps"
 
     def is_available(self) -> bool:
-        return torch.backends.mps.is_available() and torch.backends.mps.is_built()
+        return torch.executors.mps.is_available() and torch.executors.mps.is_built()
 
     def is_initialized(self) -> bool:
         # TODO: change to official implementation

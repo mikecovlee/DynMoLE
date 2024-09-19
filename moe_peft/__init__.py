@@ -1,6 +1,6 @@
-from .backends import backend
 from .dispatcher import Dispatcher, TrainTask
 from .evaluator import EvaluateConfig, evaluate
+from .executors import executor
 from .generator import GenerateConfig, generate
 from .model import LLMModel
 from .modules import (
@@ -52,5 +52,5 @@ __all__ = [
     "Prompter",
     "Tokenizer",
     "setup_logging",
-    "backend",
+    "executor",
 ]

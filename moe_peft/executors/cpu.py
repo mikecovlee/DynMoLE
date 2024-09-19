@@ -3,10 +3,10 @@ import logging
 
 import torch
 
-from .common import BasicBackend
+from .common import BasicExecutor
 
 
-class CPUBackend(BasicBackend):
+class CPUExecutor(BasicExecutor):
     def __init__(self) -> None:
         super().__init__()
 

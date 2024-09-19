@@ -2,7 +2,7 @@ from typing import Dict, List, Tuple
 
 import torch
 
-from moe_peft.backends import backend
+from moe_peft.executors import executor
 
 from .abstracts import LLMFeedForward, LLMMoeBlock
 from .config import LLMModelInput
@@ -28,7 +28,7 @@ class FeedForward(torch.nn.Module):
             return self._moe_forward(data, input_args)
 
     def _moe_forward(self, data: torch.Tensor, input_args: LLMModelInput):
-        final_hidden_states = backend.init_tensor(data)
+        final_hidden_states = executor.init_tensor(data)
 
         if input_args.output_router_logits_:
             router_logits = [None for _ in range(len(input_args.batch_configs_))]
@@ -60,7 +60,7 @@ class FeedForward(torch.nn.Module):
                     moe_name, self.mlp_.act_, data[start_idx:end_idx]
                 )
 
-            backend.index_copy(
+            executor.index_copy(
                 final_hidden_states,
                 0,
                 lora_range[start_idx:end_idx],

@@ -1,9 +1,9 @@
 import torch
 
-from .common import BasicBackend
+from .common import BasicExecutor
 
 
-class CUDABackend(BasicBackend):
+class CUDAExecutor(BasicExecutor):
     def __init__(self) -> None:
         super().__init__()
         torch.cuda.init()
@@ -34,12 +34,12 @@ class CUDABackend(BasicBackend):
         torch.cuda.empty_cache()
 
     def use_deterministic_algorithms(self, mode: bool):
-        torch.backends.cudnn.benchmark = not mode
-        torch.backends.cudnn.deterministic = mode
+        torch.executors.cudnn.benchmark = not mode
+        torch.executors.cudnn.deterministic = mode
 
     def allow_tf32(self, mode: bool):
-        torch.backends.cudnn.allow_tf32 = mode
-        torch.backends.cuda.matmul.allow_tf32 = mode
+        torch.executors.cudnn.allow_tf32 = mode
+        torch.executors.cuda.matmul.allow_tf32 = mode
 
     def set_rng_state(self, device, state):
         with torch.cuda.device(device):
