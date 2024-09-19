@@ -8,8 +8,7 @@ import torch.nn.functional as F
 from torch.nn import LayerNorm
 from transformers.utils import is_flash_attn_2_available
 
-from moe_peft.executors import executor
-from moe_peft.modules import (
+from moe_peft.common import (
     FeedForward,
     Linear,
     LLMAttention,
@@ -23,6 +22,7 @@ from moe_peft.modules import (
     flash_attention_forward,
     slice_tensor,
 )
+from moe_peft.executors import executor
 from moe_peft.utils import copy_parameters
 
 

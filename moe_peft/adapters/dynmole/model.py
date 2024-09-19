@@ -4,7 +4,7 @@ from typing import Optional, Tuple
 import torch
 import torch.nn.functional as F
 
-from moe_peft.modules import Linear, LLMMoeBlock, tsallis_entropy
+from moe_peft.common import Linear, LLMMoeBlock, tsallis_entropy
 
 from .config import DynMoleConfig
 

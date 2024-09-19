@@ -7,6 +7,12 @@ from transformers.models.mistral import modeling_mistral
 from transformers.models.qwen2 import modeling_qwen2
 from transformers.utils import is_flash_attn_2_available
 
+from moe_peft.common import (
+    FeedForward,
+    LLMCache,
+    LLMModelInput,
+    flash_attention_forward,
+)
 from moe_peft.executors import executor
 from moe_peft.models.modeling_llama import (
     LlamaAttention,
@@ -18,12 +24,6 @@ from moe_peft.models.modeling_llama import (
     LlamaRMSNorm,
     apply_rotary_pos_emb,
     repeat_kv,
-)
-from moe_peft.modules import (
-    FeedForward,
-    LLMCache,
-    LLMModelInput,
-    flash_attention_forward,
 )
 from moe_peft.utils import copy_parameters
 

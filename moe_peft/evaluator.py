@@ -6,8 +6,7 @@ from typing import Dict, List
 
 import torch
 
-from .model import LLMModel
-from .modules import (
+from .common import (
     InputData,
     LLMBatchConfig,
     LLMModelInput,
@@ -15,6 +14,7 @@ from .modules import (
     Prompt,
     tsallis_entropy,
 )
+from .model import LLMModel
 from .tasks import BasicMetric, BasicTask, CommonSenseTask, task_dict
 from .tokenizer import Tokenizer
 

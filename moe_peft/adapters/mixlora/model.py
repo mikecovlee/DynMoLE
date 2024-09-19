@@ -4,7 +4,7 @@ import torch
 import torch.nn.functional as F
 from transformers.activations import ACT2FN
 
-from moe_peft.modules import LLMFeedForward, LLMModelInput, LLMMoeBlock, slice_tensor
+from moe_peft.common import LLMFeedForward, LLMModelInput, LLMMoeBlock, slice_tensor
 
 from .config import MixLoraConfig
 

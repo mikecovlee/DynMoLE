@@ -9,8 +9,7 @@ from transformers.models.llama import modeling_llama
 from transformers.models.llama.modeling_llama import apply_rotary_pos_emb, repeat_kv
 from transformers.utils import is_flash_attn_2_available
 
-from moe_peft.executors import executor
-from moe_peft.modules import (
+from moe_peft.common import (
     ROPE_INIT_FUNCTIONS,
     FeedForward,
     Linear,
@@ -27,6 +26,7 @@ from moe_peft.modules import (
     prepare_4d_causal_attention_mask,
     slice_tensor,
 )
+from moe_peft.executors import executor
 from moe_peft.utils import copy_parameters
 
 

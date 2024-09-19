@@ -18,9 +18,7 @@ from moe_peft.adapters import (
     moe_layer_factory,
     router_loss_factory,
 )
-from moe_peft.executors import executor
-from moe_peft.models import from_pretrained
-from moe_peft.modules import (
+from moe_peft.common import (
     CHECKPOINT_CLASSES,
     AdapterConfig,
     Linear,
@@ -35,6 +33,8 @@ from moe_peft.modules import (
     LoraConfig,
     unpack_router_logits,
 )
+from moe_peft.executors import executor
+from moe_peft.models import from_pretrained
 from moe_peft.tasks import SequenceClassificationTask, task_dict
 from moe_peft.utils import is_package_available
 

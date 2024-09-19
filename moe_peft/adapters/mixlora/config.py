@@ -5,7 +5,7 @@ from typing import Dict, Optional, Union
 import torch
 from transformers.activations import ACT2FN
 
-from moe_peft.modules import LoraConfig
+from moe_peft.common import LoraConfig
 
 available_routing_strategies = ["mixlora", "mixlora-dynamic", "mixlora-switch"]
 

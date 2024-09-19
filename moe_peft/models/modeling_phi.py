@@ -13,8 +13,7 @@ from transformers.models.phi.modeling_phi import (
 )
 from transformers.utils import is_flash_attn_2_available
 
-from moe_peft.executors import executor
-from moe_peft.modules import (
+from moe_peft.common import (
     FeedForward,
     Linear,
     LLMAttention,
@@ -30,6 +29,7 @@ from moe_peft.modules import (
     prepare_4d_causal_attention_mask,
     slice_tensor,
 )
+from moe_peft.executors import executor
 from moe_peft.utils import copy_parameters
 
 

@@ -2,7 +2,7 @@ import copy
 from dataclasses import dataclass
 from typing import Dict
 
-from moe_peft.modules import LoraConfig
+from moe_peft.common import LoraConfig
 
 
 @dataclass

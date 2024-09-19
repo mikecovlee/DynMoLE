@@ -9,8 +9,7 @@ from transformers.models.phi3 import modeling_phi3
 from transformers.models.phi3.modeling_phi3 import apply_rotary_pos_emb, repeat_kv
 from transformers.utils import is_flash_attn_2_available
 
-from moe_peft.executors import executor
-from moe_peft.modules import (
+from moe_peft.common import (
     FeedForward,
     Linear,
     LLMAttention,
@@ -26,6 +25,7 @@ from moe_peft.modules import (
     prepare_4d_causal_attention_mask,
     slice_tensor,
 )
+from moe_peft.executors import executor
 from moe_peft.utils import copy_parameters
 
 from .modeling_gemma2 import Gemma2RotaryEmbedding as Phi3RotaryEmbedding

@@ -2,7 +2,7 @@ from typing import Dict, Optional, TypeAlias
 
 import torch
 
-from moe_peft.modules import AdapterConfig, LoraConfig
+from moe_peft.common import AdapterConfig, LoraConfig
 
 from .dynmole import DynMoleConfig, DynMoleRouterLoss, DynMoleSparseMoe
 from .loramoe import LoraMoe, LoraMoeConfig

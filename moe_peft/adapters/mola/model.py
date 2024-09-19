@@ -4,7 +4,7 @@ from typing import Optional
 import torch
 import torch.nn.functional as F
 
-from moe_peft.modules import Linear, LLMMoeBlock
+from moe_peft.common import Linear, LLMMoeBlock
 
 from .config import MolaConfig
 

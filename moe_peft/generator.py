@@ -5,9 +5,9 @@ from typing import Callable, Dict, List, Optional, Tuple, Union
 
 import torch
 
+from moe_peft.common import LLMBatchConfig, LLMModelInput, Tokens, cache_factory
 from moe_peft.executors import executor
 from moe_peft.model import LLMModel
-from moe_peft.modules import LLMBatchConfig, LLMModelInput, Tokens, cache_factory
 from moe_peft.prompter import Prompter
 from moe_peft.tokenizer import Tokenizer
 

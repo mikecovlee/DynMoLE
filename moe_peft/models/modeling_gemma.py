@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from transformers.models.gemma import modeling_gemma
 
+from moe_peft.common import FeedForward
 from moe_peft.executors import executor
 from moe_peft.models.modeling_llama import (
     LLAMA_ATTENTION_CLASSES as GEMMA_ATTENTION_CLASSES,
@@ -13,7 +14,6 @@ from moe_peft.models.modeling_llama import (
     LlamaForCausalLM,
     LlamaMLP,
 )
-from moe_peft.modules import FeedForward
 from moe_peft.utils import copy_parameters
 
 
