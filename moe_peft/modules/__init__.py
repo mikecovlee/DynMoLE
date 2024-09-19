@@ -30,7 +30,6 @@ from .checkpoint import (
 # Model Configuration
 from .config import (
     AdapterConfig,
-    DynMoleConfig,
     InputData,
     Labels,
     LLMBatchConfig,
@@ -38,38 +37,20 @@ from .config import (
     LLMModelInput,
     LLMModelOutput,
     LoraConfig,
-    LoraMoeConfig,
     Masks,
-    MixLoraConfig,
-    MolaConfig,
     Prompt,
     Tokens,
-    lora_config_factory,
 )
 from .feed_forward import FeedForward
 
 # LoRA
 from .lora_linear import Linear, Lora, get_range_tensor
 
-# MixLoRA MoEs
-from .lora_moes import (
-    DynamicRouterLoss,
-    DynamicSparseMoe,
-    DynMole,
-    LoraMoe,
-    MixtralRouterLoss,
-    MixtralSparseMoe,
-    MolaSparseMoe,
-    SwitchRouterLoss,
-    SwitchSparseMoe,
-    moe_layer_dict,
-    moe_layer_factory,
-    router_loss_dict,
-    router_loss_factory,
-)
+# MoEs
 from .moe_utils import (
     collect_plugin_router_logtis,
     shannon_entropy,
+    slice_tensor,
     tsallis_entropy,
     unpack_router_logits,
 )
@@ -92,24 +73,12 @@ __all__ = [
     "FeedForward",
     "tsallis_entropy",
     "shannon_entropy",
+    "slice_tensor",
     "unpack_router_logits",
     "collect_plugin_router_logtis",
     "get_range_tensor",
     "Lora",
     "Linear",
-    "MixtralRouterLoss",
-    "MixtralSparseMoe",
-    "DynamicRouterLoss",
-    "DynamicSparseMoe",
-    "SwitchRouterLoss",
-    "SwitchSparseMoe",
-    "LoraMoe",
-    "MolaSparseMoe",
-    "DynMole",
-    "router_loss_dict",
-    "moe_layer_dict",
-    "router_loss_factory",
-    "moe_layer_factory",
     "LLMAttention",
     "LLMFeedForward",
     "LLMMoeBlock",
@@ -127,10 +96,5 @@ __all__ = [
     "LLMModelInput",
     "AdapterConfig",
     "LoraConfig",
-    "MixLoraConfig",
-    "LoraMoeConfig",
-    "MolaConfig",
-    "DynMoleConfig",
-    "lora_config_factory",
     "ROPE_INIT_FUNCTIONS",
 ]

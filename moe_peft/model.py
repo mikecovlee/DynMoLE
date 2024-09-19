@@ -9,12 +9,20 @@ import torch
 from huggingface_hub import snapshot_download
 from transformers import AutoModelForCausalLM
 
+from moe_peft.adapters import (
+    DynMoleConfig,
+    LoraMoeConfig,
+    MixLoraConfig,
+    MolaConfig,
+    lora_config_factory,
+    moe_layer_factory,
+    router_loss_factory,
+)
 from moe_peft.backends import backend
 from moe_peft.models import from_pretrained
 from moe_peft.modules import (
     CHECKPOINT_CLASSES,
     AdapterConfig,
-    DynMoleConfig,
     Linear,
     LLMCache,
     LLMDecoder,
@@ -25,12 +33,6 @@ from moe_peft.modules import (
     LLMMoeBlock,
     LLMOutput,
     LoraConfig,
-    LoraMoeConfig,
-    MixLoraConfig,
-    MolaConfig,
-    lora_config_factory,
-    moe_layer_factory,
-    router_loss_factory,
     unpack_router_logits,
 )
 from moe_peft.tasks import SequenceClassificationTask, task_dict

@@ -25,8 +25,8 @@ from moe_peft.modules import (
     eager_attention_forward,
     flash_attention_forward,
     prepare_4d_causal_attention_mask,
+    slice_tensor,
 )
-from moe_peft.modules.mix_lora import _slice_tensor
 from moe_peft.utils import copy_parameters
 
 
@@ -363,21 +363,21 @@ class LlamaMLP(LLMFeedForward):
 
             lora_name = f"moe.{moe_name}.experts.{expert_idx}"
             if lora_name in self.w1_.loras_:
-                lora_data = _slice_tensor(hidden_states, top_x, input_dtype)
+                lora_data = slice_tensor(hidden_states, top_x, input_dtype)
                 w1 = self.w1_.loras_[lora_name].forward(
-                    _slice_tensor(common_w1, top_x, input_dtype), lora_data
+                    slice_tensor(common_w1, top_x, input_dtype), lora_data
                 )
             else:
                 lora_data = None
-                w1 = _slice_tensor(common_w1, top_x, input_dtype)
+                w1 = slice_tensor(common_w1, top_x, input_dtype)
 
             if lora_name in self.w3_.loras_:
                 w3 = self.w3_.loras_[lora_name].forward(
-                    _slice_tensor(common_w3, top_x, input_dtype),
-                    _slice_tensor(hidden_states, top_x, input_dtype, lora_data),
+                    slice_tensor(common_w3, top_x, input_dtype),
+                    slice_tensor(hidden_states, top_x, input_dtype, lora_data),
                 )
             else:
-                w3 = _slice_tensor(common_w3, top_x, input_dtype)
+                w3 = slice_tensor(common_w3, top_x, input_dtype)
 
             act_result = act_fn(w1) * w3
             if lora_name in self.w2_.loras_:
