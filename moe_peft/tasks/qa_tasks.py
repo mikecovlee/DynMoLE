@@ -4,7 +4,7 @@ from typing import List, Optional
 import datasets as hf_datasets
 import torch
 
-from moe_peft.modules import InputData
+from moe_peft.common import InputData
 
 from .common import AutoMetric, BasicMetric, CommonSenseTask
 

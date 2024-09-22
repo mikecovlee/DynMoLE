@@ -1,9 +1,9 @@
 import torch
 
-from .common import BasicBackend
+from .common import BasicExecutor
 
 
-class CUDABackend(BasicBackend):
+class CUDAExecutor(BasicExecutor):
     def __init__(self) -> None:
         super().__init__()
         torch.cuda.init()

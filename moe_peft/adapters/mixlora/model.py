@@ -4,22 +4,9 @@ import torch
 import torch.nn.functional as F
 from transformers.activations import ACT2FN
 
-from .abstracts import LLMFeedForward, LLMModelInput, LLMMoeBlock
+from moe_peft.common import LLMFeedForward, LLMModelInput, LLMMoeBlock, slice_tensor
+
 from .config import MixLoraConfig
-
-
-def _slice_tensor(
-    data: torch.Tensor,
-    slice: torch.Tensor,
-    dtype: torch.dtype,
-    last_value: Optional[torch.Tensor] = None,
-):
-    if last_value is None:
-        # for macOS debugging, please uncomment this line
-        # assert data.dtype in (torch.float, torch.int, torch.bool)
-        return data[None, slice].reshape(-1, data.shape[-1]).to(dtype)
-    else:
-        return last_value
 
 
 def _mixlora_compatible_forward(
@@ -34,7 +21,7 @@ def _mixlora_compatible_forward(
     for expert_idx in range(expert_mask.shape[0]):
         _, top_x = torch.where(expert_mask[expert_idx])
         lora_name = f"moe.{moe_name}.experts.{expert_idx}"
-        lora_data = _slice_tensor(hidden_states, top_x, input_dtype)
+        lora_data = slice_tensor(hidden_states, top_x, input_dtype)
         final_expert_states.append(
             ffn_layer._lora_forward(lora_name, act_fn, lora_data)
         )

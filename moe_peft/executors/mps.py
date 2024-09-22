@@ -2,10 +2,10 @@ import contextlib
 
 import torch
 
-from .common import BasicBackend
+from .common import BasicExecutor
 
 
-class MPSBackend(BasicBackend):
+class MPSExecutor(BasicExecutor):
     def __init__(self) -> None:
         super().__init__()
 

@@ -9,12 +9,18 @@ import torch
 from huggingface_hub import snapshot_download
 from transformers import AutoModelForCausalLM
 
-from moe_peft.backends import backend
-from moe_peft.models import from_pretrained
-from moe_peft.modules import (
+from moe_peft.adapters import (
+    DynMoleConfig,
+    LoraMoeConfig,
+    MixLoraConfig,
+    MolaConfig,
+    lora_config_factory,
+    moe_layer_factory,
+    router_loss_factory,
+)
+from moe_peft.common import (
     CHECKPOINT_CLASSES,
     AdapterConfig,
-    DynMoleConfig,
     Linear,
     LLMCache,
     LLMDecoder,
@@ -25,14 +31,10 @@ from moe_peft.modules import (
     LLMMoeBlock,
     LLMOutput,
     LoraConfig,
-    LoraMoeConfig,
-    MixLoraConfig,
-    MolaConfig,
-    lora_config_factory,
-    moe_layer_factory,
-    router_loss_factory,
     unpack_router_logits,
 )
+from moe_peft.executors import executor
+from moe_peft.models import from_pretrained
 from moe_peft.tasks import SequenceClassificationTask, task_dict
 from moe_peft.utils import is_package_available
 
@@ -542,7 +544,7 @@ class LLMModel(torch.nn.Module):
             logging.info("Loading model with half precision.")
 
         # BFloat16 is only supported after Ampere GPUs
-        if not backend.is_bf16_supported():
+        if not executor.is_bf16_supported():
             if load_dtype == torch.bfloat16:
                 logging.warning("bf16 is not available. deprecated to fp16.")
                 load_dtype = torch.float16

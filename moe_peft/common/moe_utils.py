@@ -1,5 +1,5 @@
 import copy
-from typing import List
+from typing import List, Optional
 
 import torch
 
@@ -31,6 +31,20 @@ def shannon_entropy(
     eps: float = 1e-5,
 ) -> torch.Tensor:
     return tsallis_entropy(p, 1.0, normalize, eps)
+
+
+def slice_tensor(
+    data: torch.Tensor,
+    slice: torch.Tensor,
+    dtype: torch.dtype,
+    last_value: Optional[torch.Tensor] = None,
+):
+    if last_value is None:
+        # for macOS debugging, please uncomment this line
+        # assert data.dtype in (torch.float, torch.int, torch.bool)
+        return data[None, slice].reshape(-1, data.shape[-1]).to(dtype)
+    else:
+        return last_value
 
 
 def unpack_router_logits(gate_logits: List[torch.Tensor]) -> torch.Tensor:

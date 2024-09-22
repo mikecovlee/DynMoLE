@@ -7,7 +7,7 @@ from transformers.utils import is_torch_bf16_available_on_device
 from moe_peft.utils import NoneContexts
 
 
-class BasicBackend:
+class BasicExecutor:
     def name(self) -> str:
         raise NotImplementedError()
 
