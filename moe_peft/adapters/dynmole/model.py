@@ -35,9 +35,11 @@ def _dynamic_routing(
     # Calculate entropy using Tsallis entropy
     router_entropy = tsallis_entropy(p=router_logits, q=entropy_index, eps=entropy_eps)
 
-    # Broadcast if entropy is higher than threshold (set all experts active)
-    high_entropy_mask = router_entropy > entropy_threshold
-    final_mask[high_entropy_mask] = 1  # Activate all experts for high-entropy tokens
+    if entropy_index > 0.0 and entropy_threshold < 1.0:
+        # Broadcast if entropy is higher than threshold (set all experts active)
+        high_entropy_mask = router_entropy > entropy_threshold
+        # Activate all experts for high-entropy tokens
+        final_mask[high_entropy_mask] = 1
 
     # Apply mask to router logits (deactivate non-selected experts)
     router_logits = router_logits * final_mask
