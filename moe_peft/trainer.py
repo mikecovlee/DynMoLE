@@ -8,7 +8,7 @@ from typing import Dict, List, Optional, Union
 import torch
 from transformers import get_scheduler
 
-from .common import LLMModelOutput, Prompt
+from .common import LLMModelOutput, Prompt, tsallis_entropy
 from .dispatcher import Dispatcher, DispatcherConfig, TrainTask
 from .evaluator import EvaluateConfig, evaluate
 from .executors import no_cache
@@ -233,16 +233,26 @@ def save_adapter_weight(model: LLMModel, config: TrainConfig, path: str, dir_suf
         json.dump(lora_config_dict, f, indent=4)
 
 
-def _compute_loss(config_dict: Dict[str, TrainConfig], outputs: List[LLMModelOutput]):
+def _compute_loss(
+    model: LLMModel, config_dict: Dict[str, TrainConfig], outputs: List[LLMModelOutput]
+):
     total_loss = None
     for output in outputs:
         adapter_name = output.adapter_name
         loss = output.loss / config_dict[adapter_name].accumulation_step_
-        logging.info(f"    adapter: {adapter_name} loss: {loss}")
+        logging.info(f"    adapter: {adapter_name}    loss: {loss}")
         if output.aux_loss:
             aux_loss = output.aux_loss / config_dict[adapter_name].accumulation_step_
-            logging.info(f"    adapter: {adapter_name}  aux: {aux_loss}")
+            logging.info(f"    adapter: {adapter_name}     aux: {aux_loss}")
             loss += aux_loss
+        if output.router_logits is not None:
+            entropic_index = getattr(
+                model.adapter_configs_[adapter_name], "entropy_index_", 1.0
+            )
+            gating_entropy = tsallis_entropy(
+                p=output.router_logits.softmax(-1), q=entropic_index
+            ).mean()
+            logging.info(f"    adapter: {adapter_name} entropy: {gating_entropy}")
         if total_loss is None:
             total_loss = loss
         else:
@@ -313,7 +323,7 @@ def train(
 
         outputs = model.forward(input_args)
 
-        total_loss = _compute_loss(config_dict, outputs)
+        total_loss = _compute_loss(model, config_dict, outputs)
 
         total_loss.backward()
 
