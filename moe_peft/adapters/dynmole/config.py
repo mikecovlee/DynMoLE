@@ -9,6 +9,8 @@ from moe_peft.common import LoraConfig
 class DynMoleConfig(LoraConfig):
     entropy_threshold_: float = None
     entropy_index_: float = None
+    # "tsallis" or "renyi"
+    entropy_type_: str = "tsallis"
     entropy_eps_: float = None
     keep_top_k_: int = None
     top_p_: float = None
@@ -29,6 +31,10 @@ class DynMoleConfig(LoraConfig):
             and self.entropy_index_ > 0
             and self.entropy_index_ <= 2.0
         )
+        assert isinstance(self.entropy_type_, str) and self.entropy_type_ in [
+            "tsallis",
+            "renyi",
+        ]
         assert isinstance(self.entropy_eps_, float) and self.entropy_eps_ > 0
         assert isinstance(self.keep_top_k_, int) and self.keep_top_k_ > 0
         assert isinstance(self.top_p_, float) and self.top_p_ > 0 and self.top_p_ <= 1.0
@@ -53,6 +59,7 @@ class DynMoleConfig(LoraConfig):
         return DynMoleConfig(
             entropy_threshold_=config.get("entropy_threshold", 0.9),
             entropy_index_=config.get("entropy_index", 1.1),
+            entropy_type_=config.get("entropy_type", "tsallis"),
             entropy_eps_=config.get("entropy_eps", 1e-5),
             keep_top_k_=config.get("keep_top_k", 2),
             top_p_=config.get("top_p", 0.75),
@@ -75,6 +82,7 @@ class DynMoleConfig(LoraConfig):
         config["num_experts"] = self.num_experts_
         config["entropy_threshold"] = self.entropy_threshold_
         config["entropy_index"] = self.entropy_index_
+        config["entropy_type"] = self.entropy_type_
         config["entropy_eps"] = self.entropy_eps_
         config["keep_top_k"] = self.keep_top_k_
         config["top_p"] = self.top_p_

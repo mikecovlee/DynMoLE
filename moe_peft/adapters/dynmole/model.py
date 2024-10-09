@@ -4,7 +4,7 @@ from typing import Optional, Tuple
 import torch
 import torch.nn.functional as F
 
-from moe_peft.common import Linear, LLMMoeBlock, tsallis_entropy
+from moe_peft.common import Linear, LLMMoeBlock, renyi_entropy, tsallis_entropy
 
 from .config import DynMoleConfig
 
@@ -14,6 +14,7 @@ def _dynamic_routing(
     router_logits: torch.Tensor,
     entropy_threshold: float,
     entropy_index: float,
+    entropy_type: str,
     entropy_eps: float,
     keep_top_k: int,
     top_p: float,
@@ -32,8 +33,17 @@ def _dynamic_routing(
     final_mask = torch.zeros_like(router_logits)
     final_mask.scatter_(-1, sorted_indices, expert_mask)
 
-    # Calculate entropy using Tsallis entropy
-    router_entropy = tsallis_entropy(p=router_logits, q=entropy_index, eps=entropy_eps)
+    # Calculate entropy
+    if entropy_type == "tsallis":
+        router_entropy = tsallis_entropy(
+            p=router_logits, a=entropy_index, eps=entropy_eps
+        )
+    elif entropy_type == "renyi":
+        router_entropy = renyi_entropy(
+            p=router_logits, a=entropy_index, eps=entropy_eps
+        )
+    else:
+        raise NotImplementedError()
 
     if entropy_index > 0.0 and entropy_threshold < 1.0:
         # Broadcast if entropy is higher than threshold (set all experts active)
@@ -51,6 +61,7 @@ def _dynamic_load_balancing_loss_func(
     router_logits: torch.Tensor,
     entropy_threshold: float,
     entropy_index: float,
+    entropy_type: str,
     entropy_eps: float,
     keep_top_k: int,
     top_p: float,
@@ -65,6 +76,7 @@ def _dynamic_load_balancing_loss_func(
         router_logits=orig_routing_weights,
         entropy_threshold=entropy_threshold,
         entropy_index=entropy_index,
+        entropy_type=entropy_type,
         entropy_eps=entropy_eps,
         keep_top_k=keep_top_k,
         top_p=top_p,
@@ -123,6 +135,7 @@ class DynMoleRouterLoss(torch.nn.Module):
             router_logits=gate_logits,
             entropy_threshold=self.config.entropy_threshold_,
             entropy_index=self.config.entropy_index_,
+            entropy_type=self.config.entropy_type_,
             entropy_eps=self.config.entropy_eps_,
             keep_top_k=self.config.keep_top_k_,
             top_p=self.config.top_p_,
@@ -177,6 +190,7 @@ class DynMoleSparseMoe(LLMMoeBlock):
             router_logits=routing_weights,
             entropy_threshold=self.config_.entropy_threshold_,
             entropy_index=self.config_.entropy_index_,
+            entropy_type=self.config_.entropy_type_,
             entropy_eps=self.config_.entropy_eps_,
             keep_top_k=self.config_.keep_top_k_,
             top_p=self.config_.top_p_,

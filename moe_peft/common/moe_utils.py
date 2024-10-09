@@ -26,11 +26,25 @@ def tsallis_entropy(
 
 
 def shannon_entropy(
-    p: torch.Tensor,
-    normalize: bool = True,
-    eps: float = 1e-5,
+    p: torch.Tensor, normalize: bool = True, eps: float = 1e-5
 ) -> torch.Tensor:
     return tsallis_entropy(p, 1.0, normalize, eps)
+
+
+@torch.jit.script
+def renyi_entropy(p: torch.Tensor, a: float, normalize: bool = True, eps: float = 1e-5):
+    N = p.size(dim=-1)
+    p = p + eps
+    if a == 1.0:
+        entropy = -torch.sum(p * torch.log(p), dim=-1)
+    else:
+        entropy = 1 / (1 - a) * torch.log(torch.sum(p**a, dim=-1) + 1e-10)
+
+    max_entropy = torch.log(torch.tensor(N, dtype=torch.float32))
+    if normalize:
+        return entropy / max_entropy
+    else:
+        return entropy
 
 
 def slice_tensor(
